@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import BoardListView from '../views/BoardListView.vue'
 import PostFormView from '../views/PostFormView.vue'
 import PostDetailView from '../views/PostDetailView.vue'
+import CategoryDetailView from '@/views/CategoryDetailView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,11 @@ const router = createRouter({
       name: 'board-detail',
       component: PostDetailView
     },
+    {
+      path: '/category/:name',
+      name: 'category-detail',
+      component: CategoryDetailView
+    }
   ]
 })
 
