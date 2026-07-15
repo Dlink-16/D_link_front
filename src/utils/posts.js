@@ -92,6 +92,17 @@ const normalizePost = (post) => {
   };
 };
 
+const formatLocalDateTime = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const getStorage = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
     return window.localStorage;
@@ -166,8 +177,8 @@ export const addPost = (postData) => {
     title: postData.title,
     content: postData.content,
     password: postData.password,
-    created_at: now.toISOString().slice(0, 10),
-    created_at_full: now.toISOString().slice(0, 19).replace('T', ' ')
+    created_at: now.toLocaleDateString('sv-SE'),
+    created_at_full: formatLocalDateTime(now)
   };
 
   const nextPosts = [newPost, ...getPosts()];
