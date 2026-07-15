@@ -1,76 +1,90 @@
 <template>
-  <div id="app-container">
-    <nav class="navbar">
-      <div class="logo">
-        <router-link to="/">🌐 지역 사랑방</router-link>
-      </div>
-      <div class="nav-links">
-        <router-link to="/">홈</router-link>
-        <router-link to="/community">커뮤니티</router-link>
-      </div>
-    </nav>
+  <div id="app">
+    <header class="main-nav">
+      <router-link to="/" class="brand">LocalHub</router-link>
+      <nav class="nav-links">
+        <router-link to="/" class="nav-link">홈</router-link>
+        <router-link to="/board" class="nav-link">게시판</router-link>
+      </nav>
+    </header>
 
-    <main class="main-content">
-      <router-view @open-chat="isChatOpen = true" />
+    <main class="page-shell">
+      <router-view />
     </main>
 
-    <Chatbot v-model:isOpen="isChatOpen" />
+    <ChatBotWidget />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import Chatbot from './components/Chatbot.vue'
-
-const isChatOpen = ref(false)
+import ChatBotWidget from '@/components/ChatBotWidget.vue';
 </script>
 
-<style>
-/* Global Styles */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', 'Roboto', sans-serif;
-}
-body {
-  background-color: #f5f7fa;
-  color: #333;
-}
-#app-container {
+<style scoped>
+#app {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: 'Pretendard', 'Noto Sans KR', 'Segoe UI', sans-serif;
 }
-.navbar {
-  background-color: white;
-  padding: 1rem 2rem;
+
+.main-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
-.logo a {
-  font-size: 1.5rem;
-  font-weight: bold;
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #4f46e5;
   text-decoration: none;
-  color: #764ba2;
+  letter-spacing: -0.02em;
 }
+
 .nav-links {
   display: flex;
-  gap: 1.5rem;
+  gap: 8px;
 }
-.nav-links a {
+
+.nav-link {
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #334155;
   text-decoration: none;
-  color: #555;
-  font-weight: 500;
-  transition: color 0.3s;
+  transition: background 0.2s ease, color 0.2s ease;
 }
-.nav-links a:hover, .nav-links a.router-link-active {
-  color: #764ba2;
+
+.nav-link:hover,
+.nav-link.router-link-active {
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 600;
 }
-.main-content {
-  flex: 1;
-  padding: 2rem;
+
+.page-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+@media (max-width: 640px) {
+  .main-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+  }
 }
 </style>
