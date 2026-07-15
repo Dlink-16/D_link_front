@@ -4,6 +4,8 @@
       <router-link to="/" class="brand">LocalHub</router-link>
       <nav class="nav-links">
         <router-link to="/" class="nav-link">홈</router-link>
+        <!-- 💡 '정보' 메뉴 링크를 새롭게 추가했습니다 -->
+        <router-link to="/category" class="nav-link">정보</router-link>
         <router-link to="/board" class="nav-link">게시판</router-link>
       </nav>
     </header>

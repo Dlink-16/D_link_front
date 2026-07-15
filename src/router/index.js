@@ -34,9 +34,9 @@ const router = createRouter({
       component: PostDetailView
     },
     {
-      path: '/category/:name',
+      path: '/category/:name?',
       name: 'category-detail',
-      component: CategoryDetailView
+      component: () => import('@/views/CategoryDetailView.vue')
     }
   ]
 })

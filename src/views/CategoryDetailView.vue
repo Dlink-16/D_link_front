@@ -4,13 +4,47 @@
     <!-- 상단 헤더 및 뒤로가기 -->
     <header class="detail-header">
       <button class="back-btn" @click="goBack">← 홈으로 돌아가기</button>
-      <h1 class="title">대전/충청 대표 {{ currentCategoryData.title }} 전체 정보</h1>
-      <p class="subtitle">LocalHub가 추천하는 지역 핫플레이스 상세 안내입니다.</p>
+      <h1 class="title">대전/충청 종합 지역 정보</h1>
+      <p class="subtitle">카테고리를 선택하여 LocalHub가 추천하는 상세 정보를 확인해 보세요.</p>
     </header>
 
-    <!-- 3개 장소 정보 카드형 리스트 -->
+    <!-- 탭 내비게이션 버튼 (홈 화면 스타일의 카테고리 전환 버튼) -->
+    <section class="tab-navigation">
+      <div class="tab-grid">
+        <button 
+          type="button" 
+          class="tab-card" 
+          :class="{ active: activeTab === 'tour' }" 
+          @click="activeTab = 'tour'"
+        >
+          🏞️ 관광지
+        </button>
+        <button 
+          type="button" 
+          class="tab-card" 
+          :class="{ active: activeTab === 'food' }" 
+          @click="activeTab = 'food'"
+        >
+          🍕 맛집
+        </button>
+        <button 
+          type="button" 
+          class="tab-card" 
+          :class="{ active: activeTab === 'festival' }" 
+          @click="activeTab = 'festival'"
+        >
+          🎉 축제·행사
+        </button>
+      </div>
+    </section>
+
+    <!-- 선택된 카테고리의 3개 정보 카드 리스트 -->
     <div class="items-list">
-      <div v-for="(item, index) in currentCategoryData.items" :key="index" class="detail-card">
+      <div 
+        v-for="(item, index) in currentCategoryData.items" 
+        :key="index" 
+        class="detail-card"
+      >
         <div class="card-img-box">
           <img :src="item.image" :alt="item.name" class="card-img" />
         </div>
@@ -24,16 +58,16 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
 
-// URL 파라미터에서 카테고리 명(tour, food, festival)을 가져옵니다.
-const categoryParam = computed(() => route.params.name || 'tour');
+// 현재 활성화된 탭 관리 ('tour', 'food', 'festival')
+const activeTab = ref('tour');
 
-// 홈 화면과 공유할 수 있는 데이터셋 구조
+// 전체 데이터셋 구조
 const categoryData = {
   tour: {
     title: '관광지',
@@ -97,8 +131,26 @@ const categoryData = {
   }
 };
 
+// 현재 선택된 탭(카테고리)의 데이터만 필터링하여 리턴
 const currentCategoryData = computed(() => {
-  return categoryData[categoryParam.value] || categoryData.tour;
+  return categoryData[activeTab.value] || categoryData.tour;
+});
+
+// 진입 시 URL 파라미터가 있다면 해당 탭을 열어줌 (예: /category/food -> 맛집 탭 활성화)
+const setTabFromRoute = () => {
+  const categoryParam = route.params.name;
+  if (categoryParam && categoryData[categoryParam]) {
+    activeTab.value = categoryParam;
+  }
+};
+
+onMounted(() => {
+  setTabFromRoute();
+});
+
+// 페이지가 켜진 상태에서 라우터 파라미터가 바뀔 때를 감지
+watch(() => route.params.name, () => {
+  setTabFromRoute();
 });
 
 const goBack = () => {
@@ -108,19 +160,19 @@ const goBack = () => {
 
 <style scoped>
 .category-detail-container {
-  max-width: 800px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 32px 16px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
 .detail-header {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #f1f5f9;
   padding-bottom: 20px;
 }
 
@@ -141,20 +193,55 @@ const goBack = () => {
 
 .title {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 2rem;
   color: #0f172a;
 }
 
 .subtitle {
   margin: 0;
   color: #64748b;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
+/* 탭 스타일 */
+.tab-navigation {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.tab-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tab-card {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.tab-card:hover,
+.tab-card.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* 리스트 스타일 */
 .items-list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .detail-card {
@@ -165,11 +252,17 @@ const goBack = () => {
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.detail-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
 }
 
 .card-img-box {
-  width: 240px;
-  height: 160px;
+  width: 220px;
+  height: 150px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
@@ -190,18 +283,21 @@ const goBack = () => {
 
 .card-info h2 {
   margin: 0 0 12px 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   color: #0f172a;
 }
 
 .description {
   margin: 0;
   color: #475569;
-  line-height: 1.7;
-  font-size: 1rem;
+  line-height: 1.6;
+  font-size: 0.98rem;
 }
 
 @media (max-width: 640px) {
+  .tab-grid {
+    grid-template-columns: 1fr;
+  }
   .detail-card {
     flex-direction: column;
   }
