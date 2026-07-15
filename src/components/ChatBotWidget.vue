@@ -60,11 +60,14 @@ const sendMessage = async () => {
   scrollToBottom();
 
   try {
-    // FastAPI 백엔드 연동 예시
-    const response = await fetch('/api/chat', {
+    const history = messages.value.slice(0, -1); // 방금 추가한 유저 메시지 제외한 이전 대화 내역
+    const response = await fetch('http://localhost:8000/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userPrompt })
+      body: JSON.stringify({ 
+        message: userPrompt,
+        history: history
+      })
     });
     const data = await response.json();
     messages.value.push({ role: 'assistant', content: data.reply });
@@ -138,6 +141,7 @@ const scrollToBottom = () => {
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.4;
+  white-space: pre-wrap;
 }
 .message-wrapper.assistant .message-bubble { background: white; border: 1px solid #e2e8f0; }
 .message-wrapper.user .message-bubble { background: #4f46e5; color: white; }
