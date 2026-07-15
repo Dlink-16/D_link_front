@@ -38,115 +38,139 @@
       </div>
     </section>
 
-    <!-- 선택된 카테고리의 3개 정보 카드 리스트 -->
-    <div class="items-list">
-      <div 
-        v-for="(item, index) in currentCategoryData.items" 
-        :key="index" 
-        class="detail-card"
-      >
-        <div class="card-img-box">
-          <img :src="item.image" :alt="item.name" class="card-img" />
-        </div>
-        <div class="card-info">
-          <h2>{{ item.name }}</h2>
-          <p class="description">{{ item.description }}</p>
+    <p v-if="isLoading" class="result-state">지역 정보를 불러오는 중입니다...</p>
+    <p v-else-if="loadError" class="result-state error-state">{{ loadError }}</p>
+
+    <!-- 선택된 카테고리의 지역 정보 카드 리스트 -->
+    <template v-else-if="items.length">
+      <div class="items-list">
+        <div
+          v-for="item in items"
+          :key="item.id"
+          class="detail-card"
+        >
+          <div class="card-img-box">
+            <img v-if="item.image" :src="item.image" :alt="item.name" class="card-img" @error="item.image = ''" />
+            <div v-else class="card-img card-placeholder">{{ currentCategory.icon }}</div>
+          </div>
+          <div class="card-info">
+            <h2>{{ item.name }}</h2>
+            <p class="description">{{ item.description }}</p>
+            <p class="content-type">{{ item.contentType }}</p>
+          </div>
         </div>
       </div>
-    </div>
+
+      <nav v-if="totalPages > 1" class="pagination" aria-label="지역 정보 페이지">
+        <button type="button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">이전</button>
+        <button
+          v-for="page in visiblePages"
+          :key="page"
+          type="button"
+          class="page-button"
+          :class="{ active: page === currentPage }"
+          :aria-current="page === currentPage ? 'page' : undefined"
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+        <button type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">다음</button>
+      </nav>
+    </template>
+    <p v-else class="result-state">표시할 {{ currentCategory.title }} 정보가 없습니다.</p>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import apiClient from '@/utils/api';
+import { normalizePlace, PLACE_CATEGORIES } from '@/utils/places';
 
 const route = useRoute();
 const router = useRouter();
 
 // 현재 활성화된 탭 관리 ('tour', 'food', 'festival')
 const activeTab = ref('tour');
+const items = ref([]);
+const isLoading = ref(false);
+const loadError = ref('');
+const currentPage = ref(1);
+const totalItems = ref(0);
+const pageSize = 12;
+let latestRequestId = 0;
 
-// 전체 데이터셋 구조
-const categoryData = {
-  tour: {
-    title: '관광지',
-    items: [
-      {
-        name: '한빛탑',
-        image: 'https://images.unsplash.com/photo-1542224566-6e85f2e6772f?q=80&w=400',
-        description: '1993년 대전 엑스포를 기념하기 위해 세워진 상징탑으로, 현재는 멋진 야간 경관 조명과 대전 시내를 한눈에 볼 수 있는 전망대로 인기가 높습니다.'
-      },
-      {
-        name: '장태산휴양림',
-        image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=400',
-        description: '울창하게 뻗은 메타세쿼이아 숲길이 이국적인 풍경을 자아내는 자연휴양림입니다. 스카이웨이를 걸으며 숲의 공기를 한껏 들이마실 수 있습니다.'
-      },
-      {
-        name: '대청호',
-        image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=400',
-        description: '대전과 청주에 걸쳐 있는 드넓은 호수로, 호반을 따라 이어지는 드라이브 코스와 낭만적인 산책로(오백리길)가 연인들과 가족들에게 최고의 힐링을 선사합니다.'
-      }
-    ]
-  },
-  food: {
-    title: '맛집',
-    items: [
-      {
-        name: '성심당',
-        image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=400',
-        description: '명실상부 대전을 대표하는 전국구 베이커리로 튀김소보로와 부추빵, 명란바게트가 시그니처입니다. 사계절 내내 방문객들의 발길이 끊이지 않습니다.'
-      },
-      {
-        name: '대전역 먹거리',
-        image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=400',
-        description: '대전역 인근에 모여 있는 전통 칼국수 골목과 가락국수 노포들로, 칼칼하고 진한 국물 맛이 일품이라 여행의 피로를 풀기에 완벽한 장소입니다.'
-      },
-      {
-        name: '충주 성남시티 맛집',
-        image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=400',
-        description: '신선한 로컬 식재료를 사용한 정갈한 한식 코스 요리와 현지 주민들이 주로 찾는 숨겨진 매운탕, 고기 구이 맛집들이 분포한 핫플레이스입니다.'
-      }
-    ]
-  },
-  festival: {
-    title: '축제·행사',
-    items: [
-      {
-        name: '엑스포다리 음악분수',
-        image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=400',
-        description: '매년 따뜻한 계절 주말 야간마다 한빛탑 광장 앞 엑스포다리에서 화려한 조명, 신나는 음악과 함께 시원하게 뿜어져 나오는 달빛 분수 축제입니다.'
-      },
-      {
-        name: '보문산 숲속 음악회',
-        image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400',
-        description: '푸른 자연 속 야외 음악당에서 펼쳐지는 클래식 및 대중음악 행사로, 산들바람과 함께 아름다운 선율을 즐길 수 있어 남녀노소 야외 힐링 공간이 됩니다.'
-      },
-      {
-        name: '청남대 국화축제',
-        image: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=400',
-        description: '대청호반의 대통령 전용 휴양지였던 청남대 산책로를 가득 채우는 가을 국화 축제입니다. 수만 송이 꽃과 분재들이 전시되어 장관을 이룹니다.'
-      }
-    ]
+const currentCategory = computed(() => PLACE_CATEGORIES[activeTab.value] || PLACE_CATEGORIES.tour);
+const totalPages = computed(() => Math.ceil(totalItems.value / pageSize));
+const visiblePages = computed(() => {
+  const start = Math.max(1, Math.min(currentPage.value - 2, totalPages.value - 4));
+  const end = Math.min(totalPages.value, start + 4);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
+});
+
+const loadPlaces = async () => {
+  const requestId = ++latestRequestId;
+  isLoading.value = true;
+  loadError.value = '';
+
+  try {
+    const contentType = currentCategory.value.contentType;
+    const [listResponse, countResponse] = await Promise.all([
+      apiClient.get('/places/', {
+        params: { content_type: contentType, page: currentPage.value, limit: pageSize }
+      }),
+      apiClient.get('/places/count', {
+        params: { content_type: contentType }
+      })
+    ]);
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+    totalItems.value = countResponse.data.total;
+    items.value = listResponse.data.map(normalizePlace);
+  } catch (error) {
+    if (requestId !== latestRequestId) {
+      return;
+    }
+    console.error(`${currentCategory.value.title} 정보 로드 실패:`, error);
+    items.value = [];
+    totalItems.value = 0;
+    loadError.value = '지역 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+  } finally {
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
   }
 };
 
-// 현재 선택된 탭(카테고리)의 데이터만 필터링하여 리턴
-const currentCategoryData = computed(() => {
-  return categoryData[activeTab.value] || categoryData.tour;
-});
+const resetPaginationAndLoad = () => {
+  if (currentPage.value === 1) {
+    loadPlaces();
+    return;
+  }
+  currentPage.value = 1;
+};
+
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) {
+    return;
+  }
+  currentPage.value = page;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 // 진입 시 URL 파라미터가 있다면 해당 탭을 열어줌 (예: /category/food -> 맛집 탭 활성화)
 const setTabFromRoute = () => {
   const categoryParam = route.params.name;
-  if (categoryParam && categoryData[categoryParam]) {
+  if (categoryParam && PLACE_CATEGORIES[categoryParam]) {
     activeTab.value = categoryParam;
   }
 };
 
-onMounted(() => {
-  setTabFromRoute();
-});
+setTabFromRoute();
+watch(activeTab, resetPaginationAndLoad, { immediate: true });
+watch(currentPage, loadPlaces);
 
 // 페이지가 켜진 상태에서 라우터 파라미터가 바뀔 때를 감지
 watch(() => route.params.name, () => {
@@ -275,6 +299,14 @@ const goBack = () => {
   object-fit: cover;
 }
 
+.card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  font-size: 3rem;
+}
+
 .card-info {
   display: flex;
   flex-direction: column;
@@ -292,6 +324,57 @@ const goBack = () => {
   color: #475569;
   line-height: 1.6;
   font-size: 0.98rem;
+}
+
+.content-type {
+  margin: 10px 0 0;
+  color: #4f46e5;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.result-state {
+  margin: 0;
+  padding: 32px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: white;
+  color: #64748b;
+  text-align: center;
+}
+
+.error-state {
+  color: #b91c1c;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pagination button {
+  min-width: 38px;
+  padding: 8px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  color: #334155;
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled),
+.pagination .page-button.active {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: white;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 @media (max-width: 640px) {

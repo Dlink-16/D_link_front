@@ -132,7 +132,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { deletePostById, getPostById, seedDefaultPosts } from '@/utils/posts';
+import apiClient from '@/utils/api';
 import SuccessPopup from '@/components/SuccessPopup.vue';
 
 const route = useRoute();
@@ -167,10 +167,18 @@ const editingCommentContent = ref('');
 const formatCreatedAtDisplay = (targetPost) => {
   if (!targetPost) return '';
   const baseDate = targetPost.created_at || '';
-  const fullDate = targetPost.created_at_full || '';
-  if (!fullDate) return baseDate;
-  const [datePart, timePart] = fullDate.split(' ');
-  if (!datePart || !timePart) return baseDate;
+  const fullDate = targetPost.updated_at || targetPost.created_at || '';
+
+  if (!fullDate) {
+    return baseDate;
+  }
+
+  const [datePart, timePart] = String(fullDate).split(' ');
+
+  if (!datePart || !timePart) {
+    return baseDate;
+  }
+
   const [year, month, day] = datePart.split('-');
   return `${year}.${month}.${day}. ${timePart}`;
 };
@@ -180,18 +188,19 @@ const loadComments = (postId) => {
   comments.value = savedComments ? JSON.parse(savedComments) : [];
 };
 
-const loadPost = () => {
+const loadPost = async () => {
   isLoading.value = true;
-  seedDefaultPosts();
-  const targetPost = getPostById(route.params.id);
 
-  if (targetPost) {
-    post.value = targetPost;
+  try {
+    const { data } = await apiClient.get(`/posts/${route.params.id}`);
+    post.value = data;
     loadComments(route.params.id);
-  } else {
+  } catch (error) {
+    console.error('게시글 상세 조회 실패:', error);
     post.value = null;
+  } finally {
+    isLoading.value = false;
   }
-  isLoading.value = false;
 };
 
 onMounted(loadPost);
@@ -303,20 +312,27 @@ const handleDeleteConfirm = () => {
   router.push('/board');
 };
 
-const submitPassword = () => {
+const submitPassword = async () => {
   const enteredPassword = String(passwordInput.value ?? '').trim();
-  const storedPassword = String(post.value?.password ?? '').trim();
 
-  if (enteredPassword && enteredPassword === storedPassword) {
+  if (!enteredPassword) {
+    passwordInput.value = '';
+    showPasswordErrorPopup.value = true;
+    return;
+  }
+
+  try {
     showModal.value = false;
+
     if (currentAction.value === 'edit') {
       router.push(`/board/write/${post.value.id}`);
-    } else {
-      localStorage.removeItem(`comments_post_${post.value.id}`);
-      deletePostById(post.value.id);
-      showDeletePopup.value = true;
+      return;
     }
-  } else {
+
+    await apiClient.delete(`/posts/${post.value.id}`, { params: { password: enteredPassword } });
+    showDeletePopup.value = true;
+  } catch (error) {
+    console.error('게시글 삭제 실패:', error);
     passwordInput.value = '';
     showPasswordErrorPopup.value = true;
     requestAnimationFrame(() => {

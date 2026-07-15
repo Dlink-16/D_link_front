@@ -31,28 +31,47 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import apiClient from '@/utils/api'
 
 const showWriteForm = ref(false)
 const posts = ref([])
 const newPost = ref({ title: '', content: '', password: '' })
 
-const submitPost = () => {
+const loadPosts = async () => {
+  try {
+    const { data } = await apiClient.get('/posts/')
+    posts.value = data
+  } catch (error) {
+    console.error('게시글 조회 실패:', error)
+    posts.value = []
+  }
+}
+
+const submitPost = async () => {
   if (!newPost.value.title || !newPost.value.content || !newPost.value.password) {
     alert('모든 항목을 입력해주세요.')
     return
   }
-  
-  // 임시로 화면에 추가 (추후 FastAPI 백엔드 연동)
-  posts.value.unshift({
-    id: Date.now(),
-    title: newPost.value.title,
-    content: newPost.value.content
-  })
-  
-  newPost.value = { title: '', content: '', password: '' }
-  showWriteForm.value = false
+
+  try {
+    await apiClient.post('/posts/', {
+      title: newPost.value.title,
+      content: newPost.value.content,
+      password: newPost.value.password,
+      category: '관광지'
+    })
+
+    newPost.value = { title: '', content: '', password: '' }
+    showWriteForm.value = false
+    await loadPosts()
+  } catch (error) {
+    console.error('게시글 등록 실패:', error)
+    alert('게시글 등록에 실패했습니다.')
+  }
 }
+
+onMounted(loadPosts)
 </script>
 
 <style scoped>

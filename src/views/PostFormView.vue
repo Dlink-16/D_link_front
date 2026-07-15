@@ -21,6 +21,13 @@
       <textarea id="content" v-model="formData.content" rows="10" placeholder="내용을 입력하세요"></textarea>
     </div>
 
+    <div class="form-group">
+      <label for="category">카테고리</label>
+      <select id="category" v-model="formData.category">
+        <option v-for="category in availableCategories" :key="category" :value="category">{{ category }}</option>
+      </select>
+    </div>
+
     <div class="form-group password-group">
       <label for="password">수정용 비밀번호</label>
       <input id="password" type="password" v-model="formData.password" placeholder="비밀번호 입력(평문 저장)" />
@@ -37,7 +44,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { addPost, getPostById, updatePostById } from '@/utils/posts';
+import apiClient from '@/utils/api';
 import SuccessPopup from '@/components/SuccessPopup.vue';
 
 const route = useRoute();
@@ -45,48 +52,79 @@ const router = useRouter();
 const postId = ref(route.params.id || null);
 const isEdit = ref(Boolean(postId.value));
 const showPopup = ref(false);
+const availableCategories = ref([]);
 
 const formData = ref({
   title: '',
   content: '',
-  password: ''
+  password: '',
+  category: ''
 });
 
-onMounted(() => {
-  if (!isEdit.value) return;
+const loadCategories = async () => {
+  try {
+    const { data } = await apiClient.get('/content-types/');
+    const nextCategories = data.map((item) => item.name).filter(Boolean);
+    availableCategories.value = nextCategories;
 
-  const targetPost = getPostById(postId.value);
-
-  if (targetPost) {
-    formData.value = {
-      title: targetPost.title,
-      content: targetPost.content,
-      password: targetPost.password || ''
-    };
+    if (!formData.value.category && nextCategories.length > 0) {
+      formData.value.category = nextCategories[0];
+    }
+  } catch (error) {
+    console.error('카테고리 목록 로드 실패:', error);
+    availableCategories.value = ['관광지'];
+    formData.value.category = '관광지';
   }
+};
+
+const loadExistingPost = async () => {
+  if (!isEdit.value || !postId.value) return;
+
+  try {
+    const { data } = await apiClient.get(`/posts/${postId.value}`);
+    formData.value = {
+      title: data.title,
+      content: data.content,
+      password: '',
+      category: data.category || formData.value.category
+    };
+  } catch (error) {
+    console.error('기존 게시글 로드 실패:', error);
+  }
+};
+
+onMounted(async () => {
+  await loadCategories();
+  await loadExistingPost();
 });
 
-const handleSubmit = () => {
-  if (!formData.value.title || !formData.value.content || !formData.value.password) {
+const handleSubmit = async () => {
+  if (!formData.value.title || !formData.value.content || !formData.value.password || !formData.value.category) {
     alert('모든 항목을 입력해주세요.');
     return;
   }
 
-  if (isEdit.value && postId.value) {
-    updatePostById(postId.value, {
-      title: formData.value.title,
-      content: formData.value.content,
-      password: formData.value.password
-    });
-  } else {
-    addPost({
-      title: formData.value.title,
-      content: formData.value.content,
-      password: formData.value.password
-    });
-  }
+  try {
+    if (isEdit.value && postId.value) {
+      await apiClient.put(`/posts/${postId.value}`, {
+        title: formData.value.title,
+        content: formData.value.content,
+        password: formData.value.password
+      });
+    } else {
+      await apiClient.post('/posts/', {
+        title: formData.value.title,
+        content: formData.value.content,
+        password: formData.value.password,
+        category: formData.value.category
+      });
+    }
 
-  showPopup.value = true;
+    showPopup.value = true;
+  } catch (error) {
+    console.error('게시글 저장 실패:', error);
+    alert('게시글 저장에 실패했습니다.');
+  }
 };
 
 const handlePopupConfirm = () => {

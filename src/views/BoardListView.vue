@@ -29,13 +29,15 @@
             <td>{{ post.created_at }}</td>
           </tr>
           <tr v-if="showEmptyState">
-            <td colspan="3" class="empty-state">검색 결과가 없습니다.</td>
+            <td colspan="3" class="empty-state">
+              {{ searchQuery.trim() ? '검색 결과가 없습니다.' : '등록된 게시글이 없습니다.' }}
+            </td>
           </tr>
         </tbody>
       </table>
 
       <!-- 페이지네이션 -->
-      <div v-if="totalPages >= 1" class="pagination">
+      <div v-if="totalPages > 0" class="pagination">
         <button v-if="totalPages > 1" :disabled="currentPage === 1" @click="currentPage = Math.max(1, currentPage - 1)">◀</button>
         <span class="page-num" v-for="p in totalPages" :key="p" :class="{ active: p === currentPage }" @click="currentPage = p">{{ p }}</span>
         <button v-if="totalPages > 1" :disabled="currentPage === totalPages" @click="currentPage = Math.min(totalPages, currentPage + 1)">▶</button>
@@ -48,82 +50,89 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getPosts, seedDefaultPosts } from '@/utils/posts';
+import apiClient from '@/utils/api';
 
 const route = useRoute();
 const router = useRouter();
 const searchQuery = ref('');
 const currentPage = ref(1);
-const totalPages = ref(1);
+const totalPages = ref(0);
+const totalPosts = ref(0);
 const posts = ref([]);
-const allPosts = ref([]);
-const basePosts = ref([]);
-const numberingPosts = ref([]);
 const showEmptyState = ref(false);
+const pageSize = 5;
+let latestRequestId = 0;
 
-const getPostTimestamp = (post) => {
-  if (post.created_at_full) {
-    return new Date(post.created_at_full.replace(' ', 'T'));
+const getSearchKeyword = () => {
+  const keyword = searchQuery.value.trim();
+  return keyword || undefined;
+};
+
+const getCategory = () => {
+  const category = String(route.query.category || '').trim();
+  return category && category !== 'all' ? category : undefined;
+};
+
+const loadPosts = async () => {
+  const requestId = ++latestRequestId;
+  const search = getSearchKeyword();
+  const category = getCategory();
+
+  try {
+    const [listResponse, countResponse] = await Promise.all([
+      apiClient.get('/posts/', {
+        params: { page: currentPage.value, limit: pageSize, search, category }
+      }),
+      apiClient.get('/posts/count', { params: { search, category } })
+    ]);
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+
+    totalPosts.value = countResponse.data.total;
+    totalPages.value = Math.ceil(totalPosts.value / pageSize);
+
+    if (totalPages.value > 0 && currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value;
+      return;
+    }
+
+    const start = (currentPage.value - 1) * pageSize;
+    posts.value = listResponse.data.map((post, index) => ({
+      ...post,
+      displayNumber: totalPosts.value - start - index
+    }));
+    showEmptyState.value = totalPosts.value === 0;
+  } catch (error) {
+    console.error('게시글 목록 로드 실패:', error);
+    posts.value = [];
+    totalPosts.value = 0;
+    totalPages.value = 0;
+    showEmptyState.value = true;
   }
-
-  return new Date(post.created_at || 0);
-};
-
-const sortPosts = (postsToSort, direction = 'desc') => {
-  return [...postsToSort].sort((a, b) => {
-    const dateA = getPostTimestamp(a);
-    const dateB = getPostTimestamp(b);
-    return direction === 'asc' ? dateA - dateB : dateB - dateA;
-  });
-};
-
-const getVisiblePosts = () => {
-  const keyword = searchQuery.value.trim().toLowerCase();
-
-  if (!keyword) {
-    return basePosts.value;
-  }
-
-  return basePosts.value.filter((post) => post.title.toLowerCase().includes(keyword));
-};
-
-const paginatePosts = () => {
-  const pageSize = 5;
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  const visiblePosts = getVisiblePosts();
-
-  allPosts.value = visiblePosts;
-  totalPages.value = Math.max(1, Math.ceil(visiblePosts.length / pageSize));
-  showEmptyState.value = visiblePosts.length === 0 && searchQuery.value.trim().length > 0;
-
-  posts.value = visiblePosts.slice(start, end).map((post) => ({
-    ...post,
-    displayNumber: numberingPosts.value.length - numberingPosts.value.findIndex((numberedPost) => String(numberedPost.id) === String(post.id))
-  }));
-};
-
-const loadPosts = () => {
-  seedDefaultPosts();
-  const sortedPosts = sortPosts(getPosts(), 'desc');
-  basePosts.value = sortedPosts;
-  numberingPosts.value = sortPosts(getPosts(), 'desc');
-  currentPage.value = 1;
-  paginatePosts();
 };
 
 onMounted(loadPosts);
-watch(() => route.path, loadPosts);
-watch(currentPage, paginatePosts);
+watch(() => route.query.category, () => loadFirstPage());
+watch(currentPage, loadPosts);
+
+const loadFirstPage = () => {
+  if (currentPage.value === 1) {
+    loadPosts();
+    return;
+  }
+
+  currentPage.value = 1;
+};
 
 const handleSearch = () => {
-  currentPage.value = 1;
-  paginatePosts();
+  loadFirstPage();
 };
 
 const clearSearch = () => {
   searchQuery.value = '';
-  loadPosts();
+  loadFirstPage();
 };
 
 const goToWrite = () => {
