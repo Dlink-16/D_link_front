@@ -2,8 +2,8 @@
   <div class="form-container">
     <SuccessPopup
       :open="showPopup"
-      title="등록 완료"
-      :message="'게시글이 성공적으로 등록되었습니다.'"
+      :title="isEdit ? '수정 완료' : '등록 완료'"
+      :message="isEdit ? '게시글이 성공적으로 수정되었습니다.' : '게시글이 성공적으로 등록되었습니다.'"
       confirmText="확인"
       @confirm="handlePopupConfirm"
       @close="showPopup = false"
@@ -51,13 +51,16 @@ const route = useRoute();
 const router = useRouter();
 const postId = ref(route.params.id || null);
 const isEdit = ref(Boolean(postId.value));
+const editPassword = isEdit.value && String(window.history.state?.editPostId) === String(postId.value)
+  ? String(window.history.state?.password || '')
+  : '';
 const showPopup = ref(false);
 const availableCategories = ref([]);
 
 const formData = ref({
   title: '',
   content: '',
-  password: '',
+  password: editPassword,
   category: ''
 });
 
@@ -85,7 +88,7 @@ const loadExistingPost = async () => {
     formData.value = {
       title: data.title,
       content: data.content,
-      password: '',
+      password: editPassword,
       category: data.category || formData.value.category
     };
   } catch (error) {
@@ -109,6 +112,7 @@ const handleSubmit = async () => {
       await apiClient.put(`/posts/${postId.value}`, {
         title: formData.value.title,
         content: formData.value.content,
+        category: formData.value.category,
         password: formData.value.password
       });
     } else {

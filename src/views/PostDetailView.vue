@@ -167,6 +167,7 @@ const targetComment = ref(null);      // 대상 댓글 객체
 // 현재 수정 중인 댓글 상태
 const editingCommentId = ref(null);
 const editingCommentContent = ref('');
+const editingCommentPassword = ref('');
 
 const formatCreatedAtDisplay = (targetPost) => {
   if (!targetPost) return '';
@@ -187,9 +188,9 @@ const formatCreatedAtDisplay = (targetPost) => {
   return `${year}.${month}.${day}. ${timePart}`;
 };
 
-const loadComments = (postId) => {
-  const savedComments = localStorage.getItem(`comments_post_${postId}`);
-  comments.value = savedComments ? JSON.parse(savedComments) : [];
+const loadComments = async (postId) => {
+  const { data } = await apiClient.get(`/posts/${postId}/comments`);
+  comments.value = data;
 };
 
 const loadPost = async () => {
@@ -198,7 +199,7 @@ const loadPost = async () => {
   try {
     const { data } = await apiClient.get(`/posts/${route.params.id}`);
     post.value = data;
-    loadComments(route.params.id);
+    await loadComments(route.params.id);
   } catch (error) {
     console.error('게시글 상세 조회 실패:', error);
     post.value = null;
@@ -211,7 +212,7 @@ onMounted(loadPost);
 watch(() => route.params.id, loadPost);
 
 // ➕ 댓글 추가 로직 (비밀번호 검증 추가)
-const addComment = () => {
+const addComment = async () => {
   if (!newComment.value.trim()) {
     alert('댓글 내용을 입력해주세요.');
     return;
@@ -221,20 +222,18 @@ const addComment = () => {
     return;
   }
 
-  const now = new Date();
-  const formattedDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-
-  const commentObj = {
-    id: Date.now(),
-    content: newComment.value.trim(),
-    password: newCommentPassword.value.trim(), // 비밀번호 필드 추가
-    created_at: formattedDate
-  };
-
-  comments.value.unshift(commentObj);
-  saveComments();
-  newComment.value = '';
-  newCommentPassword.value = '';
+  try {
+    const { data } = await apiClient.post(`/posts/${route.params.id}/comments`, {
+      content: newComment.value.trim(),
+      password: newCommentPassword.value.trim()
+    });
+    comments.value.unshift(data);
+    newComment.value = '';
+    newCommentPassword.value = '';
+  } catch (error) {
+    console.error('댓글 등록 실패:', error);
+    alert('댓글 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
 };
 
 // 🔒 댓글용 비밀번호 모달 오픈
@@ -250,52 +249,68 @@ const openCommentPasswordModal = (action, comment) => {
 };
 
 // 🔑 댓글 비밀번호 검증 처리
-const submitCommentPassword = () => {
+const submitCommentPassword = async () => {
   const entered = String(commentPasswordInput.value ?? '').trim();
-  const stored = String(targetComment.value?.password ?? '').trim();
-
-  if (entered && entered === stored) {
-    showCommentModal.value = false;
-    
-    if (currentCommentAction.value === 'edit') {
-      // 수정 폼 열기
-      editingCommentId.value = targetComment.value.id;
-      editingCommentContent.value = targetComment.value.content;
-    } else if (currentCommentAction.value === 'delete') {
-      // 삭제 처리
-      comments.value = comments.value.filter((c) => c.id !== targetComment.value.id);
-      saveComments();
-    }
-  } else {
+  if (!entered || !targetComment.value) {
     commentPasswordInput.value = '';
     showPasswordErrorPopup.value = true;
-    requestAnimationFrame(() => {
-      commentPasswordInputRef.value?.focus();
-    });
+    return;
+  }
+
+  try {
+    const postId = route.params.id;
+    const commentId = targetComment.value.id;
+
+    if (currentCommentAction.value === 'edit') {
+      await apiClient.post(`/posts/${postId}/comments/${commentId}/verify-password`, {
+        password: entered
+      });
+      editingCommentId.value = commentId;
+      editingCommentContent.value = targetComment.value.content;
+      editingCommentPassword.value = entered;
+    } else if (currentCommentAction.value === 'delete') {
+      await apiClient.delete(`/posts/${postId}/comments/${commentId}`, {
+        params: { password: entered }
+      });
+      comments.value = comments.value.filter((comment) => comment.id !== commentId);
+    }
+
+    showCommentModal.value = false;
+    commentPasswordInput.value = '';
+  } catch (error) {
+    console.error('댓글 비밀번호 확인 실패:', error);
+    commentPasswordInput.value = '';
+    showPasswordErrorPopup.value = true;
   }
 };
 
 // 📝 댓글 수정 완료 실행
-const submitCommentEdit = () => {
+const submitCommentEdit = async () => {
   if (!editingCommentContent.value.trim()) {
     alert('내용을 입력해주세요.');
     return;
   }
-  const comment = comments.value.find(c => c.id === editingCommentId.value);
-  if (comment) {
-    comment.content = editingCommentContent.value.trim();
-    saveComments();
+  try {
+    const commentId = editingCommentId.value;
+    const { data } = await apiClient.put(`/posts/${route.params.id}/comments/${commentId}`, {
+      content: editingCommentContent.value.trim(),
+      password: editingCommentPassword.value
+    });
+    const index = comments.value.findIndex((comment) => comment.id === commentId);
+    if (index !== -1) {
+      comments.value[index] = data;
+    }
+    cancelCommentEdit();
+  } catch (error) {
+    console.error('댓글 수정 실패:', error);
+    showPasswordErrorPopup.value = true;
   }
-  cancelCommentEdit();
 };
 
 const cancelCommentEdit = () => {
   editingCommentId.value = null;
   editingCommentContent.value = '';
-};
-
-const saveComments = () => {
-  localStorage.setItem(`comments_post_${route.params.id}`, JSON.stringify(comments.value));
+  editingCommentPassword.value = '';
 };
 
 const goBackToList = () => {
@@ -326,14 +341,21 @@ const submitPassword = async () => {
   }
 
   try {
-    showModal.value = false;
-
     if (currentAction.value === 'edit') {
-      router.push(`/board/write/${post.value.id}`);
+      await apiClient.post(`/posts/${post.value.id}/verify-password`, {
+        password: enteredPassword
+      });
+      showModal.value = false;
+      router.push({
+        name: 'board-edit',
+        params: { id: post.value.id },
+        state: { editPostId: post.value.id, password: enteredPassword }
+      });
       return;
     }
 
     await apiClient.delete(`/posts/${post.value.id}`, { params: { password: enteredPassword } });
+    showModal.value = false;
     showDeletePopup.value = true;
   } catch (error) {
     console.error('게시글 삭제 실패:', error);

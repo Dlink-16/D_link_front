@@ -105,14 +105,14 @@ const tabScrollContainer = ref(null);
 
 // 8개 카테고리 구성 설정 정보
 const categoriesConfig = {
-  tour: { title: '관광지', icon: '🏞️', contentType: PLACE_CATEGORIES?.tour?.contentType || '12' },
-  culture: { title: '문화시설', icon: '🏛️', contentType: PLACE_CATEGORIES?.culture?.contentType || '14' },
-  festival: { title: '축제공연행사', icon: '🎉', contentType: PLACE_CATEGORIES?.festival?.contentType || '15' },
-  course: { title: '여행코스', icon: '🗺️', contentType: PLACE_CATEGORIES?.course?.contentType || '25' },
-  reports: { title: '레포츠', icon: '🏂', contentType: PLACE_CATEGORIES?.reports?.contentType || '28' },
-  accommodation: { title: '숙박', icon: '🏨', contentType: PLACE_CATEGORIES?.accommodation?.contentType || '32' },
-  shopping: { title: '쇼핑', icon: '🛍️', contentType: PLACE_CATEGORIES?.shopping?.contentType || '38' },
-  food: { title: '음식점', icon: '🍕', contentType: PLACE_CATEGORIES?.food?.contentType || '39' }
+  tour: { title: '관광지', icon: '🏞️', contentType: PLACE_CATEGORIES?.tour?.contentType || '관광지' },
+  culture: { title: '문화시설', icon: '🏛️', contentType: PLACE_CATEGORIES?.culture?.contentType || '문화시설' },
+  festival: { title: '축제공연행사', icon: '🎉', contentType: PLACE_CATEGORIES?.festival?.contentType || '축제공연행사' },
+  course: { title: '여행코스', icon: '🗺️', contentType: PLACE_CATEGORIES?.course?.contentType || '여행코스' },
+  reports: { title: '레포츠', icon: '🏂', contentType: PLACE_CATEGORIES?.reports?.contentType || '레포츠' },
+  accommodation: { title: '숙박', icon: '🏨', contentType: PLACE_CATEGORIES?.accommodation?.contentType || '숙박' },
+  shopping: { title: '쇼핑', icon: '🛍️', contentType: PLACE_CATEGORIES?.shopping?.contentType || '쇼핑' },
+  food: { title: '음식점', icon: '🍕', contentType: PLACE_CATEGORIES?.food?.contentType || '음식점' }
 };
 
 const currentCategoryConfig = computed(() => categoriesConfig[activeTab.value] || categoriesConfig.tour);
