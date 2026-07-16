@@ -38,6 +38,21 @@
       </div>
     </section>
 
+    <section class="category-search" aria-label="카테고리 장소 검색">
+      <input
+        v-model="searchQuery"
+        type="search"
+        :placeholder="`${currentCategoryConfig.title} 이름 또는 주소 검색`"
+        @keydown.enter.prevent="handleSearch"
+      />
+      <button type="button" class="search-button" @click="handleSearch">검색</button>
+      <button type="button" class="reset-button" :disabled="!searchQuery && !appliedSearch" @click="clearSearch">초기화</button>
+    </section>
+
+    <p v-if="appliedSearch && !isLoading && !loadError" class="search-summary">
+      ‘{{ appliedSearch }}’ 검색 결과 {{ totalItems }}건
+    </p>
+
     <p v-if="isLoading" class="result-state">지역 정보를 불러오는 중입니다...</p>
     <p v-else-if="loadError" class="result-state error-state">{{ loadError }}</p>
 
@@ -48,6 +63,12 @@
           v-for="item in items"
           :key="item.id"
           class="detail-card"
+          role="button"
+          tabindex="0"
+          :aria-label="`${item.name} 위치 지도 보기`"
+          @click="openMapModal(item)"
+          @keydown.enter.prevent="openMapModal(item)"
+          @keydown.space.prevent="openMapModal(item)"
         >
           <div class="card-img-box">
             <img v-if="item.image" :src="item.image" :alt="item.name" class="card-img" @error="item.image = ''" />
@@ -57,34 +78,55 @@
             <h2>{{ item.name }}</h2>
             <p class="description">{{ item.description }}</p>
             <p class="content-type">{{ currentCategoryConfig.title }}</p>
+            <p class="map-hint">
+              {{ item.latitude !== null && item.longitude !== null ? '🗺️ 카드를 눌러 지도 보기' : '위치 정보 없음' }}
+            </p>
           </div>
         </div>
       </div>
 
-      <nav v-if="totalPages > 1" class="pagination" aria-label="지역 정보 페이지">
-        <button type="button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">이전</button>
-        <button
-          v-for="page in visiblePages"
-          :key="page"
-          type="button"
-          class="page-button"
-          :class="{ active: page === currentPage }"
-          :aria-current="page === currentPage ? 'page' : undefined"
-          @click="goToPage(page)"
-        >
-          {{ page }}
-        </button>
-        <button type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">다음</button>
-      </nav>
+      <PaginationControls
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        aria-label="지역 정보 페이지"
+        @change="goToPage"
+      />
     </template>
     <p v-else class="result-state">표시할 {{ currentCategoryConfig.title }} 정보가 없습니다.</p>
+
+    <div
+      v-if="selectedMapItem"
+      class="map-modal-overlay"
+      role="presentation"
+      @click.self="closeMapModal"
+    >
+      <section
+        class="map-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${selectedMapItem.name} 위치 지도`"
+      >
+        <header class="map-modal-header">
+          <div>
+            <p class="map-modal-category">{{ currentCategoryConfig.title }}</p>
+            <h2>{{ selectedMapItem.name }}</h2>
+          </div>
+          <button type="button" class="map-modal-close" aria-label="지도 닫기" @click="closeMapModal">×</button>
+        </header>
+        <p class="map-modal-address">{{ selectedMapItem.address }}</p>
+        <p v-if="mapError" class="map-modal-error">{{ mapError }}</p>
+        <div v-show="!mapError" ref="modalMapContainer" class="modal-map"></div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import PaginationControls from '@/components/PaginationControls.vue';
 import apiClient from '@/utils/api';
+import { loadLeaflet } from '@/utils/leaflet';
 import { normalizePlace, PLACE_CATEGORIES } from '@/utils/places';
 
 const route = useRoute();
@@ -95,10 +137,16 @@ const activeTab = ref('tour');
 const items = ref([]);
 const isLoading = ref(false);
 const loadError = ref('');
+const searchQuery = ref('');
+const appliedSearch = ref('');
 const currentPage = ref(1);
 const totalItems = ref(0);
+const selectedMapItem = ref(null);
+const modalMapContainer = ref(null);
+const mapError = ref('');
 const pageSize = 12;
 let latestRequestId = 0;
+let modalMapInstance = null;
 
 // 가로 스크롤 컨테이너 ref
 const tabScrollContainer = ref(null);
@@ -117,11 +165,6 @@ const categoriesConfig = {
 
 const currentCategoryConfig = computed(() => categoriesConfig[activeTab.value] || categoriesConfig.tour);
 const totalPages = computed(() => Math.ceil(totalItems.value / pageSize));
-const visiblePages = computed(() => {
-  const start = Math.max(1, Math.min(currentPage.value - 2, totalPages.value - 4));
-  const end = Math.min(totalPages.value, start + 4);
-  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
-});
 
 // 가로 슬라이더 수동 스크롤 조작 함수
 const scrollTabs = (offset) => {
@@ -160,10 +203,15 @@ const loadPlaces = async () => {
     const contentType = currentCategoryConfig.value.contentType;
     const [listResponse, countResponse] = await Promise.all([
       apiClient.get('/places/', {
-        params: { content_type: contentType, page: currentPage.value, limit: pageSize }
+        params: {
+          content_type: contentType,
+          search: appliedSearch.value || undefined,
+          page: currentPage.value,
+          limit: pageSize
+        }
       }),
       apiClient.get('/places/count', {
-        params: { content_type: contentType }
+        params: { content_type: contentType, search: appliedSearch.value || undefined }
       })
     ]);
 
@@ -203,6 +251,85 @@ const goToPage = (page) => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+const handleSearch = () => {
+  const keyword = searchQuery.value.trim();
+  if (keyword === appliedSearch.value) {
+    return;
+  }
+  appliedSearch.value = keyword;
+  resetPaginationAndLoad();
+};
+
+const clearSearch = () => {
+  if (!searchQuery.value && !appliedSearch.value) {
+    return;
+  }
+  searchQuery.value = '';
+  appliedSearch.value = '';
+  resetPaginationAndLoad();
+};
+
+const destroyModalMap = () => {
+  if (modalMapInstance) {
+    modalMapInstance.remove();
+    modalMapInstance = null;
+  }
+};
+
+const closeMapModal = () => {
+  destroyModalMap();
+  selectedMapItem.value = null;
+  mapError.value = '';
+};
+
+const openMapModal = async (item) => {
+  if (item.latitude === null || item.longitude === null) {
+    alert('이 장소는 등록된 위치 정보가 없습니다.');
+    return;
+  }
+
+  selectedMapItem.value = item;
+  mapError.value = '';
+  await nextTick();
+
+  try {
+    const L = await loadLeaflet();
+    if (selectedMapItem.value?.id !== item.id || !modalMapContainer.value) {
+      return;
+    }
+
+    destroyModalMap();
+    modalMapInstance = L.map(modalMapContainer.value, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: false
+    }).setView([item.latitude, item.longitude], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c']
+    }).addTo(modalMapInstance);
+
+    const popupContent = document.createElement('strong');
+    popupContent.textContent = item.name;
+    L.marker([item.latitude, item.longitude])
+      .addTo(modalMapInstance)
+      .bindPopup(popupContent)
+      .openPopup();
+
+    requestAnimationFrame(() => modalMapInstance?.invalidateSize());
+  } catch (error) {
+    console.error(`${item.name} 지도 로드 실패:`, error);
+    mapError.value = '지도를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+  }
+};
+
+const handleEscape = (event) => {
+  if (event.key === 'Escape' && selectedMapItem.value) {
+    closeMapModal();
+  }
+};
+
 // 진입 시 URL 파라미터가 있다면 해당 탭을 열어줌 (예: /category/reports -> 레포츠 활성화)
 const setTabFromRoute = () => {
   const categoryParam = route.params.name;
@@ -226,6 +353,12 @@ watch(currentPage, loadPlaces);
 // 페이지가 켜진 상태에서 라우터 파라미터가 바뀔 때를 감지
 watch(() => route.params.name, () => {
   setTabFromRoute();
+});
+
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape);
+  destroyModalMap();
 });
 
 const goBack = () => {
@@ -387,11 +520,71 @@ const goBack = () => {
   padding: 20px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 }
 
-.detail-card:hover {
+.category-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+}
+
+.category-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.category-search input:focus {
+  border-color: #4f46e5;
+  outline: 2px solid #e0e7ff;
+}
+
+.category-search button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.search-button {
+  border: 1px solid #4f46e5;
+  background: #4f46e5;
+  color: white;
+}
+
+.reset-button {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.reset-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.search-summary {
+  margin: -16px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.detail-card:hover,
+.detail-card:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
 }
 
 .card-img-box {
@@ -443,6 +636,13 @@ const goBack = () => {
   font-weight: 600;
 }
 
+.map-hint {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .result-state {
   margin: 0;
   padding: 32px 16px;
@@ -457,43 +657,106 @@ const goBack = () => {
   color: #b91c1c;
 }
 
-.pagination {
+.map-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
   display: flex;
-  justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.68);
 }
 
-.pagination button {
-  min-width: 38px;
-  padding: 8px 11px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+.map-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 16px;
   background: white;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+}
+
+.map-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.map-modal-header h2 {
+  margin: 2px 0 0;
+  color: #0f172a;
+  font-size: 1.4rem;
+}
+
+.map-modal-category {
+  margin: 0;
+  color: #4f46e5;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.map-modal-close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
   color: #334155;
   cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
-.pagination button:hover:not(:disabled),
-.pagination .page-button.active {
-  border-color: #4f46e5;
-  background: #4f46e5;
-  color: white;
+.map-modal-address {
+  margin: 10px 0 14px;
+  color: #64748b;
 }
 
-.pagination button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
+.map-modal-error {
+  padding: 48px 16px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  text-align: center;
+}
+
+.modal-map {
+  width: 100%;
+  height: 420px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
 }
 
 @media (max-width: 640px) {
+  .category-search {
+    flex-wrap: wrap;
+  }
+  .category-search input {
+    flex-basis: 100%;
+  }
+  .category-search button {
+    flex: 1;
+  }
   .detail-card {
     flex-direction: column;
   }
   .card-img-box {
     width: 100%;
     height: 180px;
+  }
+  .map-modal-overlay {
+    padding: 12px;
+  }
+  .map-modal {
+    padding: 16px;
+  }
+  .modal-map {
+    height: 320px;
   }
 }
 </style>
