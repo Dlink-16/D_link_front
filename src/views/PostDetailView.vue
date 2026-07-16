@@ -22,6 +22,10 @@
     <template v-else-if="post?.title">
       <!-- 게시글 상세 정보 -->
       <div class="post-header">
+        <!-- 🏷️ 카테고리 태그 표시 영역 (카테고리 값이 있을 때만 렌더링) -->
+        <span v-if="post.category" class="post-category-tag">
+          {{ post.category }}
+        </span>
         <h2>{{ post.title }}</h2>
         <p class="post-meta">작성일: {{ formatCreatedAtDisplay(post) }} | 익명 사용자</p>
       </div>
@@ -345,7 +349,31 @@ const submitPassword = async () => {
 <style scoped>
 .detail-container { max-width: 800px; margin: 0 auto; padding: 20px; position: relative; }
 .loading-state, .empty-state { padding: 24px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 8px; }
-.post-meta { color: #64748b; font-size: 14px; }
+
+/* ➡️ 게시글 헤더 및 카테고리 태그 스타일 추가 */
+.post-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.post-category-tag {
+  display: inline-block;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #e0e7ff;
+}
+.post-header h2 {
+  margin: 4px 0 8px 0;
+  font-size: 1.8rem;
+  color: #0f172a;
+}
+.post-meta { color: #64748b; font-size: 14px; margin: 0; }
+
 .post-content { min-height: 200px; padding: 20px 0; line-height: 1.6; }
 .action-buttons { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-bottom: 20px; }
 .action-buttons button { padding: 8px 16px; border: 1px solid #cbd5e1; background: white; border-radius: 4px; cursor: pointer; }
