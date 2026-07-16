@@ -77,22 +77,49 @@
     <!-- 실제 지도 및 추천 포인트 -->
     <section class="map-preview">
       <div class="map-preview-header">
-        <div>
-          <p class="eyebrow">실제 지도</p>
+        <div class="map-heading">
+          <p class="map-kicker"><span class="live-dot"></span> LIVE LOCAL MAP</p>
           <h3>{{ currentCategory.title }} 위치 안내</h3>
+          <p class="map-subtitle">추천 장소의 위치를 지도에서 한눈에 살펴보세요.</p>
         </div>
+        <span class="map-count-badge">{{ currentCategory.markers.length }}곳 표시 중</span>
       </div>
 
       <div class="map-card">
-        <div ref="mapContainer" class="map-surface"></div>
-
-        <div class="spot-list">
-          <h4>{{ currentCategory.title }} 추천 포인트</h4>
-          <ul v-if="currentCategory.spots && currentCategory.spots.length">
-            <li v-for="item in currentCategory.spots" :key="item">{{ item }}</li>
-          </ul>
-          <p v-else class="gallery-state">위치 정보가 없습니다.</p>
+        <div class="map-panel">
+          <div class="map-toolbar">
+            <span>📍 대전·충청권</span>
+            <span class="map-toolbar-guide">마커를 눌러 장소명을 확인하세요</span>
+          </div>
+          <div ref="mapContainer" class="map-surface"></div>
         </div>
+
+        <aside class="spot-list">
+          <div class="spot-list-header">
+            <div>
+              <p>CURATED PLACES</p>
+              <h4>{{ currentCategory.title }} 추천 포인트</h4>
+            </div>
+            <span>{{ currentCategory.items.length }}</span>
+          </div>
+          <div v-if="currentCategory.items && currentCategory.items.length" class="spot-items">
+            <button
+              v-for="(item, index) in currentCategory.items"
+              :key="item.id"
+              type="button"
+              class="spot-item"
+              :class="{ active: selectedItem?.id === item.id }"
+              :disabled="item.latitude === null || item.longitude === null"
+              @click="focusMapItem(item, index)"
+            >
+              <span class="spot-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="spot-name">{{ item.name }}</span>
+              <span class="spot-arrow">→</span>
+            </button>
+          </div>
+          <p v-else class="gallery-state">위치 정보가 없습니다.</p>
+          <p class="spot-guide">장소를 선택하면 지도 중심이 해당 위치로 이동합니다.</p>
+        </aside>
       </div>
     </section>
 
@@ -119,6 +146,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient from '@/utils/api';
+import { loadLeaflet } from '@/utils/leaflet';
 import { normalizePlace, PLACE_CATEGORIES, selectRepresentativePlaces } from '@/utils/places';
 
 const router = useRouter();
@@ -131,6 +159,7 @@ const categoryError = ref('');
 const mapContainer = ref(null);
 let mapInstance = null;
 let markerLayer = null;
+const mapMarkers = new Map();
 
 // 좌우 스크롤 컨테이너 ref
 const categoryScrollContainer = ref(null);
@@ -251,7 +280,7 @@ const loadCategoryPlaces = async (categoryKey) => {
     targetCategory.items = places;
     targetCategory.markers = places
       .filter((place) => place.latitude !== null && place.longitude !== null)
-      .map((place) => ({ name: place.name, lat: place.latitude, lng: place.longitude }));
+      .map((place) => ({ id: place.id, name: place.name, lat: place.latitude, lng: place.longitude }));
     targetCategory.spots = places.map((place) => place.name);
     loadedCategories.add(categoryKey);
   } catch (error) {
@@ -261,32 +290,6 @@ const loadCategoryPlaces = async (categoryKey) => {
     isCategoryLoading.value = false;
   }
 };
-
-const loadLeaflet = () => new Promise((resolve, reject) => {
-  if (window.L) {
-    resolve(window.L);
-    return;
-  }
-
-  if (document.getElementById('leaflet-script')) {
-    document.getElementById('leaflet-script').addEventListener('load', () => resolve(window.L), { once: true });
-    document.getElementById('leaflet-script').addEventListener('error', reject, { once: true });
-    return;
-  }
-
-  const style = document.createElement('link');
-  style.id = 'leaflet-style';
-  style.rel = 'stylesheet';
-  style.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-  document.head.appendChild(style);
-
-  const script = document.createElement('script');
-  script.id = 'leaflet-script';
-  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-  script.onload = () => resolve(window.L);
-  script.onerror = reject;
-  document.head.appendChild(script);
-});
 
 const renderCategoryMap = async () => {
   if (!mapContainer.value) {
@@ -313,12 +316,16 @@ const renderCategoryMap = async () => {
   const targetCategory = currentCategory.value;
   mapInstance.setView(targetCategory.center, targetCategory.zoom);
   markerLayer.clearLayers();
+  mapMarkers.clear();
 
   if (targetCategory.markers) {
     targetCategory.markers.forEach((marker) => {
-      L.marker([marker.lat, marker.lng])
-        .bindPopup(marker.name)
+      const popupContent = document.createElement('strong');
+      popupContent.textContent = marker.name;
+      const leafletMarker = L.marker([marker.lat, marker.lng])
+        .bindPopup(popupContent)
         .addTo(markerLayer);
+      mapMarkers.set(marker.id, leafletMarker);
     });
   }
 };
@@ -330,6 +337,18 @@ const selectCategory = (category) => {
 
 const selectItem = (index) => {
   selectedItemIndex.value = index;
+
+  const item = currentCategory.value.items[index];
+  if (!mapInstance || !item || item.latitude === null || item.longitude === null) {
+    return;
+  }
+
+  mapInstance.flyTo([item.latitude, item.longitude], 15, { duration: 0.8 });
+  mapMarkers.get(item.id)?.openPopup();
+};
+
+const focusMapItem = (_item, index) => {
+  selectItem(index);
 };
 
 const goToCategoryDetail = () => {
@@ -365,6 +384,7 @@ onBeforeUnmount(() => {
     mapInstance.remove();
     mapInstance = null;
     markerLayer = null;
+    mapMarkers.clear();
   }
 });
 
@@ -650,49 +670,113 @@ const goToDetail = (id) => {
 }
 
 .map-preview {
-  background: white;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 20px;
+  background: white;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .map-preview-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
-.secondary-btn {
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #334155;
-  padding: 8px 12px;
+.map-heading h3 {
+  margin: 8px 0 5px;
+  color: #0f172a;
+  font-size: 1.45rem;
+}
+
+.map-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: #4f46e5;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4f46e5;
+  box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.12);
+}
+
+.map-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.map-count-badge {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #c7d2fe;
   border-radius: 999px;
-  cursor: pointer;
+  background: rgba(238, 242, 255, 0.9);
+  color: #4f46e5;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .map-card {
   display: grid;
-  grid-template-columns: 1.4fr 0.9fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr);
+  gap: 0;
   align-items: stretch;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.map-panel {
+  min-width: 0;
+  padding: 12px;
+  background: #fff;
+}
+
+.map-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 4px 9px;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.map-toolbar-guide {
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .map-surface {
   position: relative;
-  min-height: 320px;
-  border-radius: 16px;
+  min-height: 390px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   background: #f8fafc;
 }
 
 .map-surface :deep(.leaflet-container) {
   width: 100%;
   height: 100%;
-  min-height: 320px;
+  min-height: 390px;
   background: #f8fafc;
 }
 
@@ -701,22 +785,115 @@ const goToDetail = (id) => {
 }
 
 .spot-list {
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px;
+  border-left: 1px solid #e2e8f0;
+  background: linear-gradient(155deg, #f8fafc 0%, #f5f3ff 100%);
+  color: #0f172a;
+}
+
+.spot-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.spot-list-header p {
+  margin: 0;
+  color: #4f46e5;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
 .spot-list h4 {
-  margin: 0 0 10px;
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+}
+
+.spot-list-header > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.spot-items {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.spot-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.spot-item:hover:not(:disabled),
+.spot-item.active {
+  border-color: #818cf8;
+  background: #eef2ff;
+  color: #4f46e5;
+  transform: translateX(3px);
+}
+
+.spot-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.spot-number {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.spot-name {
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spot-arrow {
+  color: #6366f1;
   font-size: 1rem;
 }
 
-.spot-list ul {
-  margin: 0;
-  padding-left: 18px;
-  color: #475569;
-  line-height: 1.8;
+.spot-guide {
+  margin: auto 0 0;
+  padding-top: 18px;
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 .post-list {
@@ -804,6 +981,24 @@ const goToDetail = (id) => {
 
   .map-card {
     grid-template-columns: 1fr;
+  }
+
+  .spot-list {
+    border-top: 1px solid #e2e8f0;
+    border-left: 0;
+  }
+
+  .map-toolbar-guide {
+    display: none;
+  }
+
+  .map-surface,
+  .map-surface :deep(.leaflet-container) {
+    min-height: 320px;
+  }
+
+  .spot-guide {
+    margin-top: 4px;
   }
 
   .post-list li {

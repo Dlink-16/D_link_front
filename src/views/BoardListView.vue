@@ -59,11 +59,12 @@
       </table>
 
       <!-- 페이지네이션 -->
-      <div v-if="totalPages > 0" class="pagination">
-        <button v-if="totalPages > 1" :disabled="currentPage === 1" @click="currentPage = Math.max(1, currentPage - 1)">◀</button>
-        <span class="page-num" v-for="p in totalPages" :key="p" :class="{ active: p === currentPage }" @click="currentPage = p">{{ p }}</span>
-        <button v-if="totalPages > 1" :disabled="currentPage === totalPages" @click="currentPage = Math.min(totalPages, currentPage + 1)">▶</button>
-      </div>
+      <PaginationControls
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        aria-label="게시글 목록 페이지"
+        @change="goToPage"
+      />
     </div>
 
   </div>
@@ -72,6 +73,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import PaginationControls from '@/components/PaginationControls.vue';
 import apiClient from '@/utils/api';
 
 const route = useRoute();
@@ -157,6 +159,14 @@ const loadFirstPage = () => {
   currentPage.value = 1;
 };
 
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) {
+    return;
+  }
+  currentPage.value = page;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 // 📂 카테고리 선택 드롭다운이 변경되었을 때 실행되는 함수
 const handleCategoryChange = () => {
   // 라우터 쿼리를 동기화시켜서 뒤로가기나 새로고침 시에도 필터가 유지되도록 유도합니다.
@@ -238,8 +248,5 @@ const goToDetail = (id) => {
 .title-cell { text-align: left !important; cursor: pointer; color: #1e293b; font-weight: 500; }
 .title-cell:hover { color: #4f46e5; text-decoration: underline; }
 
-.pagination { display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 32px; }
-.page-num { cursor: pointer; padding: 2px 6px; }
-.page-num.active { font-weight: bold; border-bottom: 2px solid #4f46e5; color: #4f46e5; }
 .empty-state { padding: 24px 12px; color: #64748b; text-align: center; }
 </style>
