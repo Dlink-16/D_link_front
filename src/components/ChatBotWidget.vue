@@ -2,8 +2,8 @@
   <div class="chatbot-container" :class="{ 'is-mobile-full': isOpen }">
     <!-- 1. 접힌 상태 (플로팅 버튼) -->
     <button v-if="!isOpen" class="floating-btn" @click="toggleChat">
-      <span class="icon">💬</span>
-      <span class="text">챗봇</span>
+      <span class="icon">🔗</span>
+      <span class="text">D.봇</span>
     </button>
 
     <!-- 2. 펼친 상태 (대화창) -->
@@ -11,7 +11,7 @@
       <!-- 크기 조절 핸들 (좌측 상단) -->
       <div class="resize-handle" @mousedown="startResize" @touchstart.passive="startResize"></div>
       <div class="chat-header">
-        <h3>LocalHub 챗봇</h3>
+        <h3>🔗 D.봇</h3>
         <button class="close-btn" @click="toggleChat">✕</button>
       </div>
       
@@ -105,7 +105,7 @@ const mapRefs = ref({});
 const mapInstances = {};
 const markerGroups = {};
 const messages = ref([
-  { role: 'assistant', content: '안녕하세요! 궁금한 지역 정보를 물어보세요.' }
+  { role: 'assistant', content: '안녕하세요! D.봇입니다 🔗 궁금한 지역 정보를 물어보세요.' }
 ]);
 const isLoading = ref(false);
 
@@ -284,13 +284,13 @@ const stopResize = () => {
   font-family: sans-serif;
 }
 .floating-btn {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, #16a34a, #22c55e);
   color: white;
   border: none;
   border-radius: 50px;
   padding: 14px 24px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -300,7 +300,7 @@ const stopResize = () => {
 }
 .floating-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4);
 }
 .chat-window {
   width: 420px; /* 초기값 (스크립트에서 덮어씀) */
@@ -326,7 +326,7 @@ const stopResize = () => {
   z-index: 10;
 }
 .chat-header {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, #16a34a, #22c55e);
   color: white;
   padding: 18px 20px;
   display: flex;
@@ -360,7 +360,7 @@ const stopResize = () => {
   border-top-left-radius: 4px;
 }
 .message-wrapper.user .message-bubble { 
-  background: linear-gradient(135deg, #4f46e5, #4338ca); 
+  background: linear-gradient(135deg, #16a34a, #15803d); 
   color: white; 
   border-top-right-radius: 4px;
 }
@@ -404,8 +404,8 @@ const stopResize = () => {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
-  background: #e0e7ff;
-  color: #4338ca;
+  background: #dcfce7;
+  color: #15803d;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -450,11 +450,11 @@ const stopResize = () => {
 }
 .chat-input-area input:focus {
   outline: none;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
 }
 .chat-input-area button { 
-  background: #4f46e5; 
+  background: #16a34a; 
   color: white; 
   border: none; 
   padding: 0 20px; 
@@ -465,7 +465,7 @@ const stopResize = () => {
   font-size: 14.5px;
 }
 .chat-input-area button:hover:not(:disabled) {
-  background: #4338ca;
+  background: #15803d;
   transform: translateY(-1px);
 }
 .chat-input-area button:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }

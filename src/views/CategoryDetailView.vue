@@ -5,7 +5,7 @@
     <header class="detail-header">
       <button class="back-btn" @click="goBack">← 홈으로 돌아가기</button>
       <h1 class="title">대전/충청 종합 지역 정보</h1>
-      <p class="subtitle">카테고리를 선택하여 LocalHub가 추천하는 상세 정보를 확인해 보세요.</p>
+      <p class="subtitle">카테고리를 선택하여 D.link가 추천하는 상세 정보를 확인해 보세요. 🌟</p>
     </header>
 
     <!-- ➡️ 탭 내비게이션 (가로 스크롤 슬라이더 구성) -->

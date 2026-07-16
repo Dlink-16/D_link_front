@@ -3,8 +3,8 @@
     <!-- 서비스 소개 배너 -->
     <section class="hero-card">
       <div>
-        <p class="eyebrow">대전/충청 지역 정보 공유</p>
-        <h1>지역 정보와 함께하는 <span class="brand">LocalHub</span></h1>
+        <p class="eyebrow">🌟 대전/충청 지역 정보 공유</p>
+        <h1>대전/충청을 잇다, <span class="brand">D.link</span></h1>
         <p>관광지, 맛집, 축제 일정까지 한눈에 확인하고 동네 사람들과 소통해보세요.</p>
       </div>
       <button class="primary-btn" @click="goToBoard('all')">게시판 바로가기</button>

@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <header class="main-nav">
-      <router-link to="/" class="brand">LocalHub</router-link>
+      <router-link to="/" class="brand">🌟 D.link</router-link>
       <nav class="nav-links">
         <router-link to="/" class="nav-link">홈</router-link>
         <!-- 💡 '정보' 메뉴 링크를 새롭게 추가했습니다 -->
@@ -44,11 +44,18 @@ import ChatBotWidget from '@/components/ChatBotWidget.vue';
 }
 
 .brand {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #4f46e5;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #16a34a;
   text-decoration: none;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+.brand:hover {
+  color: #15803d;
 }
 
 .nav-links {
@@ -66,8 +73,8 @@ import ChatBotWidget from '@/components/ChatBotWidget.vue';
 
 .nav-link:hover,
 .nav-link.router-link-active {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: #dcfce7;
+  color: #16a34a;
   font-weight: 600;
 }
 
