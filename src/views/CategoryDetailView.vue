@@ -8,32 +8,32 @@
       <p class="subtitle">카테고리를 선택하여 LocalHub가 추천하는 상세 정보를 확인해 보세요.</p>
     </header>
 
-    <!-- 탭 내비게이션 버튼 (홈 화면 스타일의 카테고리 전환 버튼) -->
+    <!-- ➡️ 탭 내비게이션 (가로 스크롤 슬라이더 구성) -->
     <section class="tab-navigation">
-      <div class="tab-grid">
-        <button 
-          type="button" 
-          class="tab-card" 
-          :class="{ active: activeTab === 'tour' }" 
-          @click="activeTab = 'tour'"
-        >
-          🏞️ 관광지
+      <div class="tab-slider-wrapper">
+        <!-- 왼쪽 이동 버튼 -->
+        <button type="button" class="scroll-btn prev" @click="scrollTabs(-200)">
+          &lt;
         </button>
-        <button 
-          type="button" 
-          class="tab-card" 
-          :class="{ active: activeTab === 'food' }" 
-          @click="activeTab = 'food'"
-        >
-          🍕 맛집
-        </button>
-        <button 
-          type="button" 
-          class="tab-card" 
-          :class="{ active: activeTab === 'festival' }" 
-          @click="activeTab = 'festival'"
-        >
-          🎉 축제·행사
+
+        <!-- 스크롤 가능한 탭 컨테이너 -->
+        <div ref="tabScrollContainer" class="tab-scroll-container">
+          <button 
+            v-for="(cat, key) in categoriesConfig" 
+            :key="key"
+            type="button" 
+            class="tab-card" 
+            :class="{ active: activeTab === key }" 
+            @click="activeTab = key"
+          >
+            <span class="tab-icon">{{ cat.icon }}</span>
+            <span class="tab-text">{{ cat.title }}</span>
+          </button>
+        </div>
+
+        <!-- 오른쪽 이동 버튼 -->
+        <button type="button" class="scroll-btn next" @click="scrollTabs(200)">
+          &gt;
         </button>
       </div>
     </section>
@@ -51,12 +51,12 @@
         >
           <div class="card-img-box">
             <img v-if="item.image" :src="item.image" :alt="item.name" class="card-img" @error="item.image = ''" />
-            <div v-else class="card-img card-placeholder">{{ currentCategory.icon }}</div>
+            <div v-else class="card-img card-placeholder">{{ currentCategoryConfig.icon }}</div>
           </div>
           <div class="card-info">
             <h2>{{ item.name }}</h2>
             <p class="description">{{ item.description }}</p>
-            <p class="content-type">{{ item.contentType }}</p>
+            <p class="content-type">{{ currentCategoryConfig.title }}</p>
           </div>
         </div>
       </div>
@@ -77,12 +77,12 @@
         <button type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">다음</button>
       </nav>
     </template>
-    <p v-else class="result-state">표시할 {{ currentCategory.title }} 정보가 없습니다.</p>
+    <p v-else class="result-state">표시할 {{ currentCategoryConfig.title }} 정보가 없습니다.</p>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import apiClient from '@/utils/api';
 import { normalizePlace, PLACE_CATEGORIES } from '@/utils/places';
@@ -90,7 +90,7 @@ import { normalizePlace, PLACE_CATEGORIES } from '@/utils/places';
 const route = useRoute();
 const router = useRouter();
 
-// 현재 활성화된 탭 관리 ('tour', 'food', 'festival')
+// 현재 활성화된 탭 관리 (기본값: 'tour')
 const activeTab = ref('tour');
 const items = ref([]);
 const isLoading = ref(false);
@@ -100,7 +100,22 @@ const totalItems = ref(0);
 const pageSize = 12;
 let latestRequestId = 0;
 
-const currentCategory = computed(() => PLACE_CATEGORIES[activeTab.value] || PLACE_CATEGORIES.tour);
+// 가로 스크롤 컨테이너 ref
+const tabScrollContainer = ref(null);
+
+// 8개 카테고리 구성 설정 정보
+const categoriesConfig = {
+  tour: { title: '관광지', icon: '🏞️', contentType: PLACE_CATEGORIES?.tour?.contentType || '12' },
+  culture: { title: '문화시설', icon: '🏛️', contentType: PLACE_CATEGORIES?.culture?.contentType || '14' },
+  festival: { title: '축제공연행사', icon: '🎉', contentType: PLACE_CATEGORIES?.festival?.contentType || '15' },
+  course: { title: '여행코스', icon: '🗺️', contentType: PLACE_CATEGORIES?.course?.contentType || '25' },
+  reports: { title: '레포츠', icon: '🏂', contentType: PLACE_CATEGORIES?.reports?.contentType || '28' },
+  accommodation: { title: '숙박', icon: '🏨', contentType: PLACE_CATEGORIES?.accommodation?.contentType || '32' },
+  shopping: { title: '쇼핑', icon: '🛍️', contentType: PLACE_CATEGORIES?.shopping?.contentType || '38' },
+  food: { title: '음식점', icon: '🍕', contentType: PLACE_CATEGORIES?.food?.contentType || '39' }
+};
+
+const currentCategoryConfig = computed(() => categoriesConfig[activeTab.value] || categoriesConfig.tour);
 const totalPages = computed(() => Math.ceil(totalItems.value / pageSize));
 const visiblePages = computed(() => {
   const start = Math.max(1, Math.min(currentPage.value - 2, totalPages.value - 4));
@@ -108,13 +123,41 @@ const visiblePages = computed(() => {
   return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
 });
 
+// 가로 슬라이더 수동 스크롤 조작 함수
+const scrollTabs = (offset) => {
+  if (tabScrollContainer.value) {
+    tabScrollContainer.value.scrollBy({
+      left: offset,
+      behavior: 'smooth'
+    });
+  }
+};
+
+// ➡️ 활성화된 탭으로 가로 스크롤을 자동으로 이동시키는 함수
+const scrollToActiveTab = () => {
+  nextTick(() => {
+    if (tabScrollContainer.value) {
+      // 활성화 상태를 가진 요소를 찾습니다.
+      const activeEl = tabScrollContainer.value.querySelector('.tab-card.active');
+      if (activeEl) {
+        // 부드럽게 화면의 가로 가운데(inline: 'center') 정렬해 줍니다.
+        activeEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
+    }
+  });
+};
+
 const loadPlaces = async () => {
   const requestId = ++latestRequestId;
   isLoading.value = true;
   loadError.value = '';
 
   try {
-    const contentType = currentCategory.value.contentType;
+    const contentType = currentCategoryConfig.value.contentType;
     const [listResponse, countResponse] = await Promise.all([
       apiClient.get('/places/', {
         params: { content_type: contentType, page: currentPage.value, limit: pageSize }
@@ -133,7 +176,7 @@ const loadPlaces = async () => {
     if (requestId !== latestRequestId) {
       return;
     }
-    console.error(`${currentCategory.value.title} 정보 로드 실패:`, error);
+    console.error(`${currentCategoryConfig.value.title} 정보 로드 실패:`, error);
     items.value = [];
     totalItems.value = 0;
     loadError.value = '지역 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
@@ -160,16 +203,24 @@ const goToPage = (page) => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// 진입 시 URL 파라미터가 있다면 해당 탭을 열어줌 (예: /category/food -> 맛집 탭 활성화)
+// 진입 시 URL 파라미터가 있다면 해당 탭을 열어줌 (예: /category/reports -> 레포츠 활성화)
 const setTabFromRoute = () => {
   const categoryParam = route.params.name;
-  if (categoryParam && PLACE_CATEGORIES[categoryParam]) {
+  if (categoryParam && categoriesConfig[categoryParam]) {
     activeTab.value = categoryParam;
+    // URL 매칭으로 탭 설정 시 스크롤 실행
+    scrollToActiveTab();
   }
 };
 
 setTabFromRoute();
-watch(activeTab, resetPaginationAndLoad, { immediate: true });
+
+// activeTab이 바뀔 때 마다 데이터를 가져오고 스크롤 이동을 처리합니다.
+watch(activeTab, () => {
+  resetPaginationAndLoad();
+  scrollToActiveTab();
+}, { immediate: true });
+
 watch(currentPage, loadPlaces);
 
 // 페이지가 켜진 상태에서 라우터 파라미터가 바뀔 때를 감지
@@ -227,7 +278,7 @@ const goBack = () => {
   font-size: 1.05rem;
 }
 
-/* 탭 스타일 */
+/* ➡️ 탭 슬라이더 레이아웃 스타일 */
 .tab-navigation {
   background: white;
   border: 1px solid #e2e8f0;
@@ -235,13 +286,36 @@ const goBack = () => {
   padding: 16px;
 }
 
-.tab-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.tab-slider-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-scroll-container {
+  display: flex;
   gap: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  /* 가로 스크롤바 숨기기 */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding: 4px;
+  width: 100%;
+}
+
+.tab-scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-card {
+  flex: 0 0 auto;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   border-radius: 12px;
@@ -250,8 +324,18 @@ const goBack = () => {
   cursor: pointer;
   font-weight: 600;
   color: #0f172a;
-  font-size: 1rem;
   transition: all 0.2s ease;
+  /* 정렬될 때 양 옆으로 보기 좋은 공백 확보 */
+  scroll-margin-inline: 20px;
+}
+
+.tab-icon {
+  font-size: 1.4rem;
+}
+
+.tab-text {
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .tab-card:hover,
@@ -259,6 +343,32 @@ const goBack = () => {
   border-color: #4f46e5;
   background: #eef2ff;
   color: #4f46e5;
+}
+
+/* 스크롤 버튼 스타일 */
+.scroll-btn {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #334155;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.scroll-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 /* 리스트 스타일 */
@@ -378,9 +488,6 @@ const goBack = () => {
 }
 
 @media (max-width: 640px) {
-  .tab-grid {
-    grid-template-columns: 1fr;
-  }
   .detail-card {
     flex-direction: column;
   }

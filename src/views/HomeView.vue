@@ -10,13 +10,34 @@
       <button class="primary-btn" @click="goToBoard('all')">게시판 바로가기</button>
     </section>
 
-    <!-- 카테고리 바로가기 -->
+    <!-- ➡️ 카테고리 바로가기 (좌우 화살표 스크롤) -->
     <section class="categories">
       <h3>카테고리 바로가기</h3>
-      <div class="category-grid">
-        <button type="button" class="category-card" :class="{ active: selectedCategory === 'tour' }" @click.stop.prevent="selectCategory('tour')">🏞️ 관광지</button>
-        <button type="button" class="category-card" :class="{ active: selectedCategory === 'food' }" @click.stop.prevent="selectCategory('food')">🍕 맛집</button>
-        <button type="button" class="category-card" :class="{ active: selectedCategory === 'festival' }" @click.stop.prevent="selectCategory('festival')">🎉 축제·행사</button>
+      <div class="category-slider-wrapper">
+        <!-- 왼쪽 이동 버튼 -->
+        <button type="button" class="scroll-btn prev" @click="scrollCategories(-200)">
+          &lt;
+        </button>
+        
+        <!-- 스크롤 가능한 카테고리 영역 -->
+        <div ref="categoryScrollContainer" class="category-scroll-container">
+          <button 
+            v-for="(cat, key) in categoryData" 
+            :key="key"
+            type="button" 
+            class="category-card" 
+            :class="{ active: selectedCategory === key }" 
+            @click.stop.prevent="selectCategory(key)"
+          >
+            <span class="category-icon">{{ cat.icon }}</span>
+            <span class="category-text">{{ cat.title }}</span>
+          </button>
+        </div>
+
+        <!-- 오른쪽 이동 버튼 -->
+        <button type="button" class="scroll-btn next" @click="scrollCategories(200)">
+          &gt;
+        </button>
       </div>
     </section>
 
@@ -24,13 +45,11 @@
     <section class="category-gallery">
       <div class="gallery-header">
         <h3>대표 {{ currentCategory.title }} 미리보기 (클릭시 정보 확인)</h3>
-        <!-- 클릭 시 새로운 상세 페이지로 이동합니다 -->
         <button class="view-all-btn" @click="goToCategoryDetail">전체 정보 보기 ↗</button>
       </div>
       
-      <!-- 3개 이미지 띄우는 그리드 -->
       <p v-if="isCategoryLoading" class="gallery-state">지역 정보를 불러오는 중입니다...</p>
-      <div v-else-if="currentCategory.items.length" class="gallery-grid">
+      <div v-else-if="currentCategory.items && currentCategory.items.length" class="gallery-grid">
         <div 
           v-for="(item, index) in currentCategory.items"
           :key="item.id"
@@ -69,7 +88,7 @@
 
         <div class="spot-list">
           <h4>{{ currentCategory.title }} 추천 포인트</h4>
-          <ul v-if="currentCategory.spots.length">
+          <ul v-if="currentCategory.spots && currentCategory.spots.length">
             <li v-for="item in currentCategory.spots" :key="item">{{ item }}</li>
           </ul>
           <p v-else class="gallery-state">위치 정보가 없습니다.</p>
@@ -98,7 +117,7 @@ import { normalizePlace, PLACE_CATEGORIES, selectRepresentativePlaces } from '@/
 
 const router = useRouter();
 const recentPosts = ref([]);
-const selectedCategory = ref('tour');
+const selectedCategory = ref('tour'); // 기본값: 관광지
 const selectedItemIndex = ref(0);
 const isCategoryLoading = ref(false);
 const categoryError = ref('');
@@ -107,9 +126,75 @@ const mapContainer = ref(null);
 let mapInstance = null;
 let markerLayer = null;
 
+// 좌우 스크롤 컨테이너 ref
+const categoryScrollContainer = ref(null);
+
+// 8개 카테고리 데이터 바인딩 (아이콘 및 기획 구성에 맞춰 설정)
 const categoryData = reactive({
   tour: {
-    ...PLACE_CATEGORIES.tour,
+    title: '관광지',
+    icon: '🏞️',
+    contentType: PLACE_CATEGORIES?.tour?.contentType || '12',
+    center: [36.35, 127.38],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  culture: {
+    title: '문화시설',
+    icon: '🏛️',
+    contentType: PLACE_CATEGORIES?.culture?.contentType || '14',
+    center: [36.35, 127.38],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  festival: {
+    title: '축제공연행사',
+    icon: '🎉',
+    contentType: PLACE_CATEGORIES?.festival?.contentType || '15',
+    center: [36.42, 127.42],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  course: {
+    title: '여행코스',
+    icon: '🗺️',
+    contentType: PLACE_CATEGORIES?.course?.contentType || '25',
+    center: [36.35, 127.38],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  reports: {
+    title: '레포츠',
+    icon: '🏂',
+    contentType: PLACE_CATEGORIES?.reports?.contentType || '28',
+    center: [36.35, 127.38],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  accommodation: {
+    title: '숙박',
+    icon: '🏨',
+    contentType: PLACE_CATEGORIES?.accommodation?.contentType || '32',
+    center: [36.35, 127.38],
+    zoom: 8,
+    markers: [],
+    spots: [],
+    items: []
+  },
+  shopping: {
+    title: '쇼핑',
+    icon: '🛍️',
+    contentType: PLACE_CATEGORIES?.shopping?.contentType || '38',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -117,16 +202,10 @@ const categoryData = reactive({
     items: []
   },
   food: {
-    ...PLACE_CATEGORIES.food,
+    title: '음식점',
+    icon: '🍕',
+    contentType: PLACE_CATEGORIES?.food?.contentType || '39',
     center: [36.34, 127.39],
-    zoom: 8,
-    markers: [],
-    spots: [],
-    items: []
-  },
-  festival: {
-    ...PLACE_CATEGORIES.festival,
-    center: [36.42, 127.42],
     zoom: 8,
     markers: [],
     spots: [],
@@ -137,6 +216,16 @@ const categoryData = reactive({
 const currentCategory = computed(() => categoryData[selectedCategory.value]);
 const selectedItem = computed(() => currentCategory.value.items[selectedItemIndex.value] || null);
 const loadedCategories = new Set();
+
+// 가로 스크롤 이동 함수
+const scrollCategories = (offset) => {
+  if (categoryScrollContainer.value) {
+    categoryScrollContainer.value.scrollBy({
+      left: offset,
+      behavior: 'smooth'
+    });
+  }
+};
 
 const loadCategoryPlaces = async (categoryKey) => {
   if (loadedCategories.has(categoryKey)) {
@@ -219,11 +308,13 @@ const renderCategoryMap = async () => {
   mapInstance.setView(targetCategory.center, targetCategory.zoom);
   markerLayer.clearLayers();
 
-  targetCategory.markers.forEach((marker) => {
-    L.marker([marker.lat, marker.lng])
-      .bindPopup(marker.name)
-      .addTo(markerLayer);
-  });
+  if (targetCategory.markers) {
+    targetCategory.markers.forEach((marker) => {
+      L.marker([marker.lat, marker.lng])
+        .bindPopup(marker.name)
+        .addTo(markerLayer);
+    });
+  }
 };
 
 const selectCategory = (category) => {
@@ -235,7 +326,6 @@ const selectItem = (index) => {
   selectedItemIndex.value = index;
 };
 
-// ↗ 신규 상세 페이지 이동 함수
 const goToCategoryDetail = () => {
   router.push(`/category/${selectedCategory.value}`);
 };
@@ -334,30 +424,63 @@ const goToDetail = (id) => {
   white-space: nowrap;
 }
 
-.categories,
-.recent-posts {
+.categories {
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 20px;
 }
 
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+/* ➡️ 슬라이더 레이아웃 스타일 */
+.category-slider-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
   margin-top: 12px;
+  gap: 8px;
+}
+
+.category-scroll-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  /* 가로 스크롤바 숨기기 (선택사항, 깔끔한 룩 제공) */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  padding: 4px;
+  width: 100%;
+}
+
+.category-scroll-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .category-card {
+  flex: 0 0 auto; /* 자식 요소 크기 고정 */
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   border-radius: 12px;
-  padding: 18px 12px;
+  padding: 14px 10px;
   text-align: center;
   cursor: pointer;
   font-weight: 600;
   color: #0f172a;
+  transition: all 0.2s ease;
+}
+
+.category-icon {
+  font-size: 1.4rem;
+}
+
+.category-text {
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .category-card:hover,
@@ -365,6 +488,39 @@ const goToDetail = (id) => {
   border-color: #4f46e5;
   background: #eef2ff;
   color: #4f46e5;
+}
+
+/* 스크롤 제어 버튼 */
+.scroll-btn {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #334155;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.scroll-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.recent-posts {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
 }
 
 /* 📸 3개 이미지 갤러리 및 헤더 스타일 */
@@ -594,10 +750,6 @@ const goToDetail = (id) => {
   .hero-card {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .category-grid {
-    grid-template-columns: 1fr;
   }
 
   .gallery-header {
