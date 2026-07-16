@@ -22,6 +22,25 @@
           :class="['message-wrapper', msg.role]"
         >
           <div class="message-bubble">{{ msg.content }}</div>
+          
+          <!-- 장소 추천 시 지도 + 주소 목록 카드 -->
+          <div v-if="msg.locations && msg.locations.length > 0" class="location-card">
+            <div class="location-map" :ref="el => { if (el) mapRefs[index] = el }"></div>
+            <div class="location-list">
+              <div 
+                v-for="(loc, li) in msg.locations" 
+                :key="li" 
+                class="location-item"
+                @click="focusMarker(index, li)"
+              >
+                <span class="loc-number">{{ li + 1 }}</span>
+                <div class="loc-info">
+                  <strong>{{ loc.name }}</strong>
+                  <span class="loc-address">{{ loc.address }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- 로딩 표시기 -->
@@ -46,15 +65,45 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import { chatStore } from '@/store/chatStore';
 import apiClient from '@/utils/api';
+
+// --- Leaflet 로드 ---
+let leafletReady = null;
+const loadLeaflet = () => {
+  if (leafletReady) return leafletReady;
+  leafletReady = new Promise((resolve, reject) => {
+    if (window.L) { resolve(window.L); return; }
+    if (!document.getElementById('leaflet-style')) {
+      const style = document.createElement('link');
+      style.id = 'leaflet-style';
+      style.rel = 'stylesheet';
+      style.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(style);
+    }
+    if (document.getElementById('leaflet-script')) {
+      document.getElementById('leaflet-script').addEventListener('load', () => resolve(window.L), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'leaflet-script';
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = () => resolve(window.L);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return leafletReady;
+};
 
 const isOpen = ref(false);
 const inputMessage = ref('');
 const messageBox = ref(null);
 const windowWidth = ref(360);
 const windowHeight = ref(500);
+const mapRefs = ref({});
+const mapInstances = {};
+const markerGroups = {};
 const messages = ref([
   { role: 'assistant', content: '안녕하세요! 궁금한 지역 정보를 물어보세요.' }
 ]);
@@ -83,11 +132,20 @@ const sendMessage = async () => {
     });
     
     const data = response.data;
-    messages.value.push({ role: 'assistant', content: data.reply });
+    const msgObj = { role: 'assistant', content: data.reply };
     
-    // 챗봇 추천 장소 데이터가 있는 경우 전역 스토어에 저장
+    // 챗봇 추천 장소 데이터가 있는 경우 메시지에 포함 + 전역 스토어에도 저장
     if (data.locations && data.locations.length > 0) {
+      msgObj.locations = data.locations;
       chatStore.setLocations(data.locations);
+    }
+    messages.value.push(msgObj);
+    
+    // 장소 데이터가 있으면 지도 렌더링
+    if (msgObj.locations) {
+      await nextTick();
+      const msgIndex = messages.value.length - 1;
+      renderMiniMap(msgIndex, msgObj.locations);
     }
   } catch (error) {
     console.error("ChatBot Error:", error);
@@ -107,6 +165,66 @@ const scrollToBottom = () => {
       messageBox.value.scrollTop = messageBox.value.scrollHeight;
     }
   });
+};
+
+// --- 미니 지도 렌더링 ---
+const renderMiniMap = async (msgIndex, locations) => {
+  const L = await loadLeaflet();
+  await nextTick();
+
+  const container = mapRefs.value[msgIndex];
+  if (!container) return;
+
+  // 이미 생성된 맵이 있으면 제거
+  if (mapInstances[msgIndex]) {
+    mapInstances[msgIndex].remove();
+  }
+
+  const map = L.map(container, {
+    zoomControl: false,
+    scrollWheelZoom: true,
+    attributionControl: false
+  });
+  mapInstances[msgIndex] = map;
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    subdomains: ['a', 'b', 'c']
+  }).addTo(map);
+
+  const group = L.featureGroup();
+  markerGroups[msgIndex] = [];
+
+  locations.forEach((loc, i) => {
+    if (loc.lat && loc.lng) {
+      const marker = L.marker([loc.lat, loc.lng])
+        .bindPopup(`<b>${loc.name}</b><br>${loc.address}`)
+        .addTo(group);
+      markerGroups[msgIndex].push(marker);
+    }
+  });
+
+  group.addTo(map);
+
+  if (markerGroups[msgIndex].length > 0) {
+    map.fitBounds(group.getBounds().pad(0.15));
+  } else {
+    map.setView([36.35, 127.38], 13);
+  }
+
+  // Leaflet은 컨테이너 크기 변경 후 invalidateSize 필요
+  setTimeout(() => map.invalidateSize(), 200);
+};
+
+// 목록 항목 클릭 시 해당 마커로 포커스
+const focusMarker = (msgIndex, locIndex) => {
+  const map = mapInstances[msgIndex];
+  const markers = markerGroups[msgIndex];
+  if (map && markers && markers[locIndex]) {
+    const marker = markers[locIndex];
+    map.setView(marker.getLatLng(), 16, { animate: true });
+    marker.openPopup();
+  }
 };
 
 // --- 크기 조절 (Resize) 로직 ---
@@ -209,7 +327,7 @@ const stopResize = () => {
   overflow-y: auto;
   background: #f8fafc;
 }
-.message-wrapper { display: flex; margin-bottom: 12px; }
+.message-wrapper { display: flex; margin-bottom: 12px; flex-wrap: wrap; }
 .message-wrapper.user { justify-content: flex-end; }
 .message-bubble {
   max-width: 75%;
@@ -221,6 +339,74 @@ const stopResize = () => {
 }
 .message-wrapper.assistant .message-bubble { background: white; border: 1px solid #e2e8f0; }
 .message-wrapper.user .message-bubble { background: #4f46e5; color: white; }
+
+/* 장소 추천 카드 (지도 + 주소 목록) */
+.location-card {
+  width: 100%;
+  display: flex;
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+  min-height: 180px;
+  max-height: 240px;
+}
+.location-map {
+  flex: 1;
+  min-width: 0;
+  min-height: 180px;
+}
+.location-list {
+  width: 160px;
+  min-width: 160px;
+  overflow-y: auto;
+  border-left: 1px solid #e2e8f0;
+}
+.location-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f1f5f9;
+}
+.location-item:last-child { border-bottom: none; }
+.location-item:hover { background: #f0f4ff; }
+.loc-number {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background: #4f46e5;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  margin-top: 2px;
+}
+.loc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.loc-info strong {
+  font-size: 12px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loc-address {
+  font-size: 10px;
+  color: #64748b;
+  word-break: break-all;
+  line-height: 1.3;
+}
 .chat-input-area { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #e2e8f0; background: white; }
 .chat-input-area input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
 .chat-input-area button { background: #4f46e5; color: white; border: none; padding: 0 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
