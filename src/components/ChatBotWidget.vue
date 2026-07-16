@@ -99,8 +99,8 @@ const loadLeaflet = () => {
 const isOpen = ref(false);
 const inputMessage = ref('');
 const messageBox = ref(null);
-const windowWidth = ref(360);
-const windowHeight = ref(500);
+const windowWidth = ref(420);
+const windowHeight = ref(650);
 const mapRefs = ref({});
 const mapInstances = {};
 const markerGroups = {};
@@ -143,6 +143,11 @@ const sendMessage = async () => {
     
     // 장소 데이터가 있으면 지도 렌더링
     if (msgObj.locations) {
+      // 지도가 뜰 때 답답하지 않도록 자동으로 창 너비를 키워줌
+      if (windowWidth.value < 750) {
+        windowWidth.value = 750;
+      }
+      
       await nextTick();
       const msgIndex = messages.value.length - 1;
       renderMiniMap(msgIndex, msgObj.locations);
@@ -279,95 +284,116 @@ const stopResize = () => {
   font-family: sans-serif;
 }
 .floating-btn {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
   color: white;
   border: none;
   border-radius: 50px;
-  padding: 12px 20px;
+  padding: 14px 24px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.floating-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
 }
 .chat-window {
-  width: 360px; /* 초기값 (스크립트에서 덮어씀) */
-  height: 500px;
+  width: 420px; /* 초기값 (스크립트에서 덮어씀) */
+  height: 650px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  border-radius: 18px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: width 0.3s ease, height 0.3s ease; /* 부드러운 크기 전환 */
 }
 /* 좌측 상단 리사이즈 핸들 */
 .resize-handle {
   position: absolute;
   top: 0;
   left: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: nwse-resize;
   z-index: 10;
 }
 .chat-header {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
   color: white;
-  padding: 16px;
+  padding: 18px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
-.chat-header h3 { margin: 0; font-size: 16px; }
-.close-btn { background: none; border: none; color: white; cursor: pointer; font-size: 18px; }
+.chat-header h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.5px; }
+.close-btn { background: none; border: none; color: white; cursor: pointer; font-size: 20px; opacity: 0.8; transition: opacity 0.2s; }
+.close-btn:hover { opacity: 1; }
 .chat-messages {
   flex: 1;
-  padding: 16px;
+  padding: 20px;
   overflow-y: auto;
   background: #f8fafc;
 }
-.message-wrapper { display: flex; margin-bottom: 12px; flex-wrap: wrap; }
+.message-wrapper { display: flex; margin-bottom: 16px; flex-wrap: wrap; }
 .message-wrapper.user { justify-content: flex-end; }
 .message-bubble {
-  max-width: 75%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  line-height: 1.4;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.5;
   white-space: pre-wrap;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
 }
-.message-wrapper.assistant .message-bubble { background: white; border: 1px solid #e2e8f0; }
-.message-wrapper.user .message-bubble { background: #4f46e5; color: white; }
+.message-wrapper.assistant .message-bubble { 
+  background: white; 
+  border: 1px solid #e2e8f0; 
+  border-top-left-radius: 4px;
+}
+.message-wrapper.user .message-bubble { 
+  background: linear-gradient(135deg, #4f46e5, #4338ca); 
+  color: white; 
+  border-top-right-radius: 4px;
+}
 
 /* 장소 추천 카드 (지도 + 주소 목록) */
 .location-card {
   width: 100%;
   display: flex;
-  margin-top: 8px;
+  margin-top: 10px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   background: white;
-  min-height: 180px;
-  max-height: 240px;
+  min-height: 200px;
+  max-height: 260px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 .location-map {
   flex: 1;
   min-width: 0;
-  min-height: 180px;
+  min-height: 200px;
 }
 .location-list {
-  width: 160px;
-  min-width: 160px;
+  width: 180px;
+  min-width: 180px;
   overflow-y: auto;
   border-left: 1px solid #e2e8f0;
 }
 .location-item {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: background 0.15s;
   border-bottom: 1px solid #f1f5f9;
@@ -376,41 +402,73 @@ const stopResize = () => {
 .location-item:hover { background: #f0f4ff; }
 .loc-number {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  background: #4f46e5;
-  color: white;
+  width: 22px;
+  height: 22px;
+  background: #e0e7ff;
+  color: #4338ca;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: bold;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .loc-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .loc-info strong {
-  font-size: 12px;
-  color: #1e293b;
+  font-size: 13px;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .loc-address {
-  font-size: 10px;
+  font-size: 11px;
   color: #64748b;
   word-break: break-all;
-  line-height: 1.3;
+  line-height: 1.4;
 }
-.chat-input-area { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #e2e8f0; background: white; }
-.chat-input-area input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
-.chat-input-area button { background: #4f46e5; color: white; border: none; padding: 0 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
-.chat-input-area button:disabled { background: #94a3b8; cursor: not-allowed; }
+.chat-input-area { 
+  padding: 16px 20px; 
+  display: flex; 
+  gap: 10px; 
+  border-top: 1px solid #e2e8f0; 
+  background: white; 
+}
+.chat-input-area input { 
+  flex: 1; 
+  padding: 12px 16px; 
+  border: 1px solid #cbd5e1; 
+  border-radius: 24px; 
+  font-size: 14.5px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.chat-input-area input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.chat-input-area button { 
+  background: #4f46e5; 
+  color: white; 
+  border: none; 
+  padding: 0 20px; 
+  border-radius: 24px; 
+  cursor: pointer; 
+  transition: all 0.2s; 
+  font-weight: 500;
+  font-size: 14.5px;
+}
+.chat-input-area button:hover:not(:disabled) {
+  background: #4338ca;
+  transform: translateY(-1px);
+}
+.chat-input-area button:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
 
 /* 로딩 애니메이션 CSS */
 .typing-indicator {
