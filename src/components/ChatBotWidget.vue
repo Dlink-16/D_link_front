@@ -37,6 +37,8 @@
 
 <script setup>
 import { ref, nextTick } from 'vue';
+import { chatStore } from '@/store/chatStore';
+import apiClient from '@/utils/api';
 
 const isOpen = ref(false);
 const inputMessage = ref('');
@@ -61,16 +63,18 @@ const sendMessage = async () => {
 
   try {
     const history = messages.value.slice(0, -1); // 방금 추가한 유저 메시지 제외한 이전 대화 내역
-    const response = await fetch('http://localhost:8000/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        message: userPrompt,
-        history: history
-      })
+    const response = await apiClient.post('/chat', {
+      message: userPrompt,
+      history: history
     });
-    const data = await response.json();
+    
+    const data = response.data;
     messages.value.push({ role: 'assistant', content: data.reply });
+    
+    // 챗봇 추천 장소 데이터가 있는 경우 전역 스토어에 저장
+    if (data.locations && data.locations.length > 0) {
+      chatStore.setLocations(data.locations);
+    }
   } catch (error) {
     messages.value.push({ role: 'assistant', content: '오류가 발생했습니다. 다시 시도해주세요.' });
   }
