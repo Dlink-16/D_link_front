@@ -7,7 +7,9 @@
     </button>
 
     <!-- 2. 펼친 상태 (대화창) -->
-    <div v-else class="chat-window">
+    <div v-else class="chat-window" :style="{ width: windowWidth + 'px', height: windowHeight + 'px' }">
+      <!-- 크기 조절 핸들 (좌측 상단) -->
+      <div class="resize-handle" @mousedown="startResize" @touchstart.passive="startResize"></div>
       <div class="chat-header">
         <h3>LocalHub 챗봇</h3>
         <button class="close-btn" @click="toggleChat">✕</button>
@@ -51,6 +53,8 @@ import apiClient from '@/utils/api';
 const isOpen = ref(false);
 const inputMessage = ref('');
 const messageBox = ref(null);
+const windowWidth = ref(360);
+const windowHeight = ref(500);
 const messages = ref([
   { role: 'assistant', content: '안녕하세요! 궁금한 지역 정보를 물어보세요.' }
 ]);
@@ -104,6 +108,48 @@ const scrollToBottom = () => {
     }
   });
 };
+
+// --- 크기 조절 (Resize) 로직 ---
+let isResizing = false;
+let startX = 0;
+let startY = 0;
+let startWidth = 0;
+let startHeight = 0;
+
+const startResize = (e) => {
+  isResizing = true;
+  const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+  const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+  startX = clientX;
+  startY = clientY;
+  startWidth = windowWidth.value;
+  startHeight = windowHeight.value;
+  document.addEventListener('mousemove', onResize);
+  document.addEventListener('mouseup', stopResize);
+  document.addEventListener('touchmove', onResize, { passive: true });
+  document.addEventListener('touchend', stopResize);
+};
+
+const onResize = (e) => {
+  if (!isResizing) return;
+  const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+  const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+  
+  // 우하단 고정이므로 마우스를 왼쪽/위로 움직일수록 크기가 증가함
+  const deltaX = startX - clientX;
+  const deltaY = startY - clientY;
+  
+  windowWidth.value = Math.max(300, Math.min(800, startWidth + deltaX));
+  windowHeight.value = Math.max(400, Math.min(800, startHeight + deltaY));
+};
+
+const stopResize = () => {
+  isResizing = false;
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+  document.removeEventListener('touchmove', onResize);
+  document.removeEventListener('touchend', stopResize);
+};
 </script>
 
 <style scoped>
@@ -127,7 +173,7 @@ const scrollToBottom = () => {
   gap: 8px;
 }
 .chat-window {
-  width: 360px;
+  width: 360px; /* 초기값 (스크립트에서 덮어씀) */
   height: 500px;
   background: white;
   border-radius: 12px;
@@ -135,6 +181,17 @@ const scrollToBottom = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+/* 좌측 상단 리사이즈 핸들 */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  z-index: 10;
 }
 .chat-header {
   background: #4f46e5;
