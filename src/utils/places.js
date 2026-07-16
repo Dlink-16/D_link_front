@@ -4,15 +4,40 @@ export const PLACE_CATEGORIES = {
     contentType: '관광지',
     icon: '🏞️'
   },
-  food: {
-    title: '맛집',
-    contentType: '음식점',
-    icon: '🍕'
+  culture: {
+    title: '문화시설',
+    contentType: '문화시설',
+    icon: '🏛️'
   },
   festival: {
     title: '축제·행사',
     contentType: '축제공연행사',
     icon: '🎉'
+  },
+  course: {
+    title: '여행코스',
+    contentType: '여행코스',
+    icon: '🗺️'
+  },
+  reports: {
+    title: '레포츠',
+    contentType: '레포츠',
+    icon: '🏂'
+  },
+  accommodation: {
+    title: '숙박',
+    contentType: '숙박',
+    icon: '🏨'
+  },
+  shopping: {
+    title: '쇼핑',
+    contentType: '쇼핑',
+    icon: '🛍️'
+  },
+  food: {
+    title: '맛집',
+    contentType: '음식점',
+    icon: '🍕'
   }
 };
 

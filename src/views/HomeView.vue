@@ -134,7 +134,7 @@ const categoryData = reactive({
   tour: {
     title: '관광지',
     icon: '🏞️',
-    contentType: PLACE_CATEGORIES?.tour?.contentType || '12',
+    contentType: PLACE_CATEGORIES?.tour?.contentType || '관광지',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -144,7 +144,7 @@ const categoryData = reactive({
   culture: {
     title: '문화시설',
     icon: '🏛️',
-    contentType: PLACE_CATEGORIES?.culture?.contentType || '14',
+    contentType: PLACE_CATEGORIES?.culture?.contentType || '문화시설',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -154,7 +154,7 @@ const categoryData = reactive({
   festival: {
     title: '축제공연행사',
     icon: '🎉',
-    contentType: PLACE_CATEGORIES?.festival?.contentType || '15',
+    contentType: PLACE_CATEGORIES?.festival?.contentType || '축제공연행사',
     center: [36.42, 127.42],
     zoom: 8,
     markers: [],
@@ -164,7 +164,7 @@ const categoryData = reactive({
   course: {
     title: '여행코스',
     icon: '🗺️',
-    contentType: PLACE_CATEGORIES?.course?.contentType || '25',
+    contentType: PLACE_CATEGORIES?.course?.contentType || '여행코스',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -174,7 +174,7 @@ const categoryData = reactive({
   reports: {
     title: '레포츠',
     icon: '🏂',
-    contentType: PLACE_CATEGORIES?.reports?.contentType || '28',
+    contentType: PLACE_CATEGORIES?.reports?.contentType || '레포츠',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -184,7 +184,7 @@ const categoryData = reactive({
   accommodation: {
     title: '숙박',
     icon: '🏨',
-    contentType: PLACE_CATEGORIES?.accommodation?.contentType || '32',
+    contentType: PLACE_CATEGORIES?.accommodation?.contentType || '숙박',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -194,7 +194,7 @@ const categoryData = reactive({
   shopping: {
     title: '쇼핑',
     icon: '🛍️',
-    contentType: PLACE_CATEGORIES?.shopping?.contentType || '38',
+    contentType: PLACE_CATEGORIES?.shopping?.contentType || '쇼핑',
     center: [36.35, 127.38],
     zoom: 8,
     markers: [],
@@ -204,7 +204,7 @@ const categoryData = reactive({
   food: {
     title: '음식점',
     icon: '🍕',
-    contentType: PLACE_CATEGORIES?.food?.contentType || '39',
+    contentType: PLACE_CATEGORIES?.food?.contentType || '음식점',
     center: [36.34, 127.39],
     zoom: 8,
     markers: [],
