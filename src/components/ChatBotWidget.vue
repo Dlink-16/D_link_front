@@ -21,6 +21,13 @@
         >
           <div class="message-bubble">{{ msg.content }}</div>
         </div>
+        
+        <!-- 로딩 표시기 -->
+        <div v-if="isLoading" class="message-wrapper assistant">
+          <div class="message-bubble typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
       </div>
 
       <div class="chat-input-area">
@@ -28,8 +35,9 @@
           v-model="inputMessage" 
           @keyup.enter="sendMessage" 
           placeholder="지역 정보를 물어보세요..." 
+          :disabled="isLoading"
         />
-        <button @click="sendMessage">전송</button>
+        <button @click="sendMessage" :disabled="isLoading">전송</button>
       </div>
     </div>
   </div>
@@ -46,19 +54,21 @@ const messageBox = ref(null);
 const messages = ref([
   { role: 'assistant', content: '안녕하세요! 궁금한 지역 정보를 물어보세요.' }
 ]);
+const isLoading = ref(false);
 
 const toggleChat = () => {
   isOpen.value = !isOpen.value;
 };
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim()) return;
+  if (!inputMessage.value.trim() || isLoading.value) return;
 
   // 유저 메시지 추가
   messages.value.push({ role: 'user', content: inputMessage.value });
   const userPrompt = inputMessage.value;
   inputMessage.value = '';
   
+  isLoading.value = true;
   scrollToBottom();
 
   try {
@@ -76,10 +86,15 @@ const sendMessage = async () => {
       chatStore.setLocations(data.locations);
     }
   } catch (error) {
+    console.error("ChatBot Error:", error);
+    if (error.response) {
+      console.error("Response Data:", error.response.data);
+    }
     messages.value.push({ role: 'assistant', content: '오류가 발생했습니다. 다시 시도해주세요.' });
+  } finally {
+    isLoading.value = false;
+    scrollToBottom();
   }
-  
-  scrollToBottom();
 };
 
 const scrollToBottom = () => {
@@ -151,7 +166,29 @@ const scrollToBottom = () => {
 .message-wrapper.user .message-bubble { background: #4f46e5; color: white; }
 .chat-input-area { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #e2e8f0; background: white; }
 .chat-input-area input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
-.chat-input-area button { background: #4f46e5; color: white; border: none; padding: 0 16px; border-radius: 6px; cursor: pointer; }
+.chat-input-area button { background: #4f46e5; color: white; border: none; padding: 0 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+.chat-input-area button:disabled { background: #94a3b8; cursor: not-allowed; }
+
+/* 로딩 애니메이션 CSS */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 12px 14px !important;
+}
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  background-color: #94a3b8;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
 
 /* 모바일 대응 반응형 CSS */
 @media (max-width: 640px) {
