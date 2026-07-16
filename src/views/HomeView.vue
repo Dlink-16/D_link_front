@@ -101,7 +101,13 @@
       <h3>최근 게시글</h3>
       <ul class="post-list">
         <li v-for="post in recentPosts" :key="post.id" @click="goToDetail(post.id)">
-          <span class="post-title">{{ post.title }}</span>
+          <div class="post-left">
+            <!-- 🏷️ 게시글별 카테고리 태그 추가 (파란색 테그 스타일) -->
+            <span v-if="post.category" class="post-category-tag">
+              {{ post.category }}
+            </span>
+            <span class="post-title">{{ post.title }}</span>
+          </div>
           <span class="post-date">{{ post.created_at }}</span>
         </li>
       </ul>
@@ -722,6 +728,7 @@ const goToDetail = (id) => {
 .post-list li {
   display: flex;
   justify-content: space-between;
+  align-items: center; /* 한 행의 높이를 고르게 정렬 */
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid #e2e8f0;
@@ -734,6 +741,26 @@ const goToDetail = (id) => {
 
 .post-list li:hover {
   background: #f8fafc;
+}
+
+/* 🏷️ 최근 게시글 카테고리 정렬 영역 */
+.post-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 🏷️ 최근 게시글 카테고리 태그 스타일 (파란색) */
+.post-category-tag {
+  display: inline-block;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid #e0e7ff;
+  white-space: nowrap;
 }
 
 .post-title {
@@ -781,6 +808,8 @@ const goToDetail = (id) => {
 
   .post-list li {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   }
 }
 </style>
